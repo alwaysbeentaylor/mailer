@@ -1,11 +1,5 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "package.json",
-            "use": "@vercel/next"
-        }
-    ],
     "env": {
         "GEMINI_API_KEY": "@gemini-api-key",
         "GMAIL_USER": "@gmail-user",
