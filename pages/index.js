@@ -141,8 +141,8 @@ export default function Home() {
           <div className="logo">
             <div className="logo-container">
               {/* Using the new logo asset if you want, or keeping the text style but enhanced */}
-              <span className="logo-icon">🍌</span>
-              <span className="logo-text neon-text">NANO BANANA</span>
+              <span className="logo-icon">⚡</span>
+              <span className="logo-text neon-text">CLIENT GENERATOR</span>
             </div>
             <span className="logo-badge">MAIL AGENT v2.0</span>
           </div>
@@ -183,7 +183,7 @@ export default function Home() {
                 Cold Outreach
               </h1>
               <p className="hero-subtitle">
-                Laat de <span className="highlight">Nano Banana Robot</span> het zware werk doen.
+                Laat de <span className="highlight">Client Generator</span> het zware werk doen.
                 Vul de details in en zie de magie gebeuren.
               </p>
             </div>
@@ -634,8 +634,8 @@ export default function Home() {
         {/* Footer */}
         <footer className="footer">
           <div className="footer-content">
-            <span className="footer-logo">🍌</span>
-            <p>Built with <span className="heart">💜</span> by <strong>Nano Banana</strong></p>
+            <span className="footer-logo">⚡</span>
+            <p>Built in <strong>Wakanda</strong> 🖤💜</p>
           </div>
         </footer>
       </div>
