@@ -161,10 +161,25 @@ skye-mail-agent/
 ## 🚀 Deploy
 
 ### Vercel (Aanbevolen)
-1. Push naar GitHub
-2. Importeer in Vercel
-3. Voeg environment variables toe in Vercel dashboard
-4. Deploy!
+1. **Repository**: Push je code naar GitHub/GitLab.
+2. **Importeer**: Importeer het project in Vercel.
+3. **Storage (BELANGRIJK!)**:
+   - Ga naar het tabblad **Storage** in je Vercel project.
+   - Klik op **Create Store** -> Kies **KV (Redis)**.
+   - Koppel de store aan je project (Environment variables `KV_URL` etc. worden automatisch toegevoegd).
+4. **Environment Variables**:
+   Ga naar **Settings** > **Environment Variables** en voeg toe:
+   
+   - `GEMINI_API_KEY`: Je Google Gemini API sleutel.
+   - `GMAIL_USER`: Je Gmail adres (voor verzenden).
+   - `GMAIL_APP_PASSWORD`: Je Gmail App Password (voor verzenden).
+   - `NEXT_PUBLIC_BASE_URL`: De URL van je deploy (bijv. `https://jouw-project.vercel.app`).
+   
+   **Voor Analytics & Reply Scanning (Gmail API):**
+   - `GMAIL_CREDENTIALS`: De *inhoud* van je `gmail_credentials.json` bestand (als platte tekst).
+   - `GMAIL_TOKENS`: De *inhoud* van je `tokens.json` bestand (als platte tekst).
+   
+5. **Deploy**: Klik op Deploy!
 
 ## 📝 License
 

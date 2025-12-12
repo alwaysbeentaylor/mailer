@@ -13,15 +13,32 @@ import {
 
 // OAuth2 client setup
 function getOAuth2Client() {
-    const credentialsPath = path.join(process.cwd(), 'gmail_credentials.json');
-    const tokensPath = path.join(process.cwd(), 'tokens.json');
+    let credentials, tokens;
 
-    if (!fs.existsSync(credentialsPath) || !fs.existsSync(tokensPath)) {
-        throw new Error('Gmail credentials of tokens niet gevonden');
+    // Probeer eerst Environment Variables (voor Vercel)
+    if (process.env.GMAIL_CREDENTIALS && process.env.GMAIL_TOKENS) {
+        try {
+            credentials = JSON.parse(process.env.GMAIL_CREDENTIALS);
+            tokens = JSON.parse(process.env.GMAIL_TOKENS);
+        } catch (e) {
+            console.error("Fout bij parsen van GMAIL ENV variabelen:", e);
+        }
     }
 
-    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
-    const tokens = JSON.parse(fs.readFileSync(tokensPath, 'utf8'));
+    // Fallback naar lokale bestanden
+    if (!credentials || !tokens) {
+        const credentialsPath = path.join(process.cwd(), 'gmail_credentials.json');
+        const tokensPath = path.join(process.cwd(), 'tokens.json');
+
+        if (fs.existsSync(credentialsPath) && fs.existsSync(tokensPath)) {
+            credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+            tokens = JSON.parse(fs.readFileSync(tokensPath, 'utf8'));
+        }
+    }
+
+    if (!credentials || !tokens) {
+        throw new Error('Gmail credentials of tokens niet gevonden (Check ENV of lokale bestanden)');
+    }
 
     const creds = credentials.installed || credentials.web;
     const { client_id, client_secret, redirect_uris } = creds;
@@ -29,7 +46,7 @@ function getOAuth2Client() {
     const oAuth2Client = new google.auth.OAuth2(
         client_id,
         client_secret,
-        redirect_uris?.[0] || 'http://localhost:3000/oauth-callback'
+        redirect_uris?.[0] || (process.env.NEXT_PUBLIC_BASE_URL ? `${process.env.NEXT_PUBLIC_BASE_URL}/oauth-callback` : 'http://localhost:3000/oauth-callback')
     );
 
     oAuth2Client.setCredentials(tokens);
