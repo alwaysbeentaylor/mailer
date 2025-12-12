@@ -1,8 +1,12 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
+import { createCampaign, getActiveSmtpAccounts, getSmtpAccounts } from "../utils/campaignStore";
+import { getWarmupSummary } from "../utils/warmupStore";
 
 export default function BatchPage() {
+  const router = useRouter();
   const [leads, setLeads] = useState([]);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -16,6 +20,20 @@ export default function BatchPage() {
   const [currentProcessingId, setCurrentProcessingId] = useState(null);
   const [sessionPrompt, setSessionPrompt] = useState(''); // Tijdelijke extra instructies voor de AI
   const [showSessionPrompt, setShowSessionPrompt] = useState(false);
+
+  // Campaign mode
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [campaignName, setCampaignName] = useState('');
+  const [smtpAccounts, setSmtpAccounts] = useState([]);
+  const [selectedSmtpIds, setSelectedSmtpIds] = useState([]);
+  const [smtpMode, setSmtpMode] = useState('single'); // single or rotate
+  const [defaultTone, setDefaultTone] = useState('professional');
+  const [verifyDomains, setVerifyDomains] = useState(true); // Verify domains before sending
+
+  // Load SMTP accounts on mount
+  useEffect(() => {
+    setSmtpAccounts(getSmtpAccounts());
+  }, []);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -294,6 +312,43 @@ export default function BatchPage() {
     }
   };
 
+  // Start campaign mode - creates persistent campaign and redirects to dashboard
+  const handleStartCampaign = () => {
+    const validLeads = leads.filter(l => l.toEmail && l.businessName && l.websiteUrl);
+
+    if (validLeads.length === 0) {
+      setError("Geen geldige leads om te versturen");
+      return;
+    }
+
+    if (selectedSmtpIds.length === 0) {
+      setError("Selecteer minimaal één SMTP account");
+      return;
+    }
+
+    // Create campaign
+    const campaign = createCampaign({
+      name: campaignName || `Campagne ${new Date().toLocaleDateString('nl-NL')} ${new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`,
+      smtpMode,
+      smtpAccountIds: selectedSmtpIds,
+      emailTone: defaultTone,
+      sessionPrompt: sessionPrompt.trim(),
+      delayBetweenEmails: 5000,
+      verifyDomains, // Domain verification toggle
+      emails: validLeads.map(lead => ({
+        email: lead.toEmail,
+        businessName: lead.businessName,
+        websiteUrl: lead.websiteUrl,
+        contactPerson: lead.contactPerson || '',
+        knowledgeFile: lead.knowledgeFile || ''
+      }))
+    });
+
+    // Redirect to campaign dashboard
+    setShowCampaignModal(false);
+    router.push(`/campaigns?id=${campaign.id}`);
+  };
+
   return (
     <>
       <Head>
@@ -368,9 +423,17 @@ export default function BatchPage() {
               <button
                 onClick={handleSendAll}
                 disabled={sending || leads.length === 0}
+                className="btn btn-secondary"
+              >
+                {sending ? `Versturen... (${progress.current}/${progress.total})` : '📧 Direct Versturen'}
+              </button>
+
+              <button
+                onClick={() => setShowCampaignModal(true)}
+                disabled={sending || leads.length === 0}
                 className="btn btn-primary"
               >
-                {sending ? `Versturen... (${progress.current}/${progress.total})` : '🚀 Alle Versturen'}
+                🚀 Start Campagne
               </button>
             </div>
 
@@ -697,6 +760,146 @@ Voorbeelden:
             )}
           </div>
         </main>
+
+        {/* Campaign Modal */}
+        {showCampaignModal && (
+          <div className="modal-overlay" onClick={() => setShowCampaignModal(false)}>
+            <div className="modal campaign-modal" onClick={e => e.stopPropagation()}>
+              <h2>🚀 Nieuwe Campagne</h2>
+
+              <div className="form-group">
+                <label>Campagne Naam</label>
+                <input
+                  type="text"
+                  value={campaignName}
+                  onChange={e => setCampaignName(e.target.value)}
+                  placeholder={`Campagne ${new Date().toLocaleDateString('nl-NL')}`}
+                  className="input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>SMTP Account(s) *</label>
+                {smtpAccounts.length === 0 ? (
+                  <div className="no-smtp-warning">
+                    ⚠️ Geen SMTP accounts geconfigureerd.{' '}
+                    <Link href="/settings">Voeg er een toe →</Link>
+                  </div>
+                ) : (
+                  <div className="smtp-list">
+                    {smtpAccounts.filter(a => a.active).map(account => (
+                      <label key={account.id} className="smtp-option">
+                        <input
+                          type="checkbox"
+                          checked={selectedSmtpIds.includes(account.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSmtpIds([...selectedSmtpIds, account.id]);
+                            } else {
+                              setSelectedSmtpIds(selectedSmtpIds.filter(id => id !== account.id));
+                            }
+                          }}
+                        />
+                        <span className="smtp-name">{account.name || account.user}</span>
+                        <span className="smtp-host">{account.host}</span>
+                        {(() => {
+                          const ws = getWarmupSummary(account.id);
+                          if (!ws.enabled) return null;
+                          return (
+                            <span className={`smtp-warmup ${ws.remaining === 0 ? 'at-limit' : ''}`}>
+                              🔥 {ws.remaining} over
+                            </span>
+                          );
+                        })()}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedSmtpIds.length > 1 && (
+                <div className="form-group">
+                  <label>SMTP Modus</label>
+                  <div className="radio-group">
+                    <label className="radio-option">
+                      <input
+                        type="radio"
+                        value="rotate"
+                        checked={smtpMode === 'rotate'}
+                        onChange={() => setSmtpMode('rotate')}
+                      />
+                      🔄 Roteren (afwisselen tussen accounts)
+                    </label>
+                    <label className="radio-option">
+                      <input
+                        type="radio"
+                        value="single"
+                        checked={smtpMode === 'single'}
+                        onChange={() => setSmtpMode('single')}
+                      />
+                      1️⃣ Eerste account gebruiken
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>Standaard Stijl</label>
+                <select
+                  value={defaultTone}
+                  onChange={e => setDefaultTone(e.target.value)}
+                  className="input select"
+                >
+                  <option value="professional">💰 ROI Focus</option>
+                  <option value="casual">🎯 Value Drop</option>
+                  <option value="urgent">🔥 FOMO</option>
+                  <option value="friendly">🤝 Warm Direct</option>
+                  <option value="random">🎲 Willekeurig per email</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="toggle-option">
+                  <input
+                    type="checkbox"
+                    checked={verifyDomains}
+                    onChange={(e) => setVerifyDomains(e.target.checked)}
+                  />
+                  <span>🔍 Domein verificatie (check-host.net)</span>
+                </label>
+                <small className="toggle-hint">
+                  Controleert of de website bereikbaar is voordat de email wordt opgesteld
+                </small>
+              </div>
+
+              <div className="campaign-summary">
+                <span>📧 {leads.filter(l => l.toEmail && l.businessName && l.websiteUrl).length} emails</span>
+                <span>📡 {selectedSmtpIds.length} SMTP account(s)</span>
+                {verifyDomains && <span>🔍 Verificatie aan</span>}
+              </div>
+
+              {error && (
+                <div className="modal-error">❌ {error}</div>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowCampaignModal(false)}
+                >
+                  Annuleren
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleStartCampaign}
+                  disabled={selectedSmtpIds.length === 0}
+                >
+                  🚀 Start Campagne
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -1437,6 +1640,193 @@ Voorbeelden:
           .actions-bar { flex-wrap: wrap; }
           .lead-fields { flex-direction: column; }
           .input { min-width: 100% !important; max-width: 100% !important; }
+        }
+
+        /* Campaign Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal {
+          background: white;
+          border-radius: 16px;
+          padding: 28px;
+          max-width: 500px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal h2 {
+          margin: 0 0 20px 0;
+          color: var(--text-primary);
+        }
+
+        .form-group {
+          margin-bottom: 18px;
+        }
+
+        .form-group label {
+          display: block;
+          margin-bottom: 6px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          font-size: 14px;
+        }
+
+        .no-smtp-warning {
+          background: #fef3c7;
+          border: 1px solid #f59e0b;
+          border-radius: 8px;
+          padding: 12px;
+          color: #92400e;
+          font-size: 14px;
+        }
+
+        .no-smtp-warning a {
+          color: #0066cc;
+          text-decoration: none;
+          font-weight: 600;
+        }
+
+        .smtp-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .smtp-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px;
+          background: #f8fafc;
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          cursor: pointer;
+          transition: border-color 0.2s;
+        }
+
+        .smtp-option:hover {
+          border-color: var(--accent-primary);
+        }
+
+        .smtp-option input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+        }
+
+        .smtp-name {
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+
+        .smtp-host {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-left: auto;
+        }
+
+        .smtp-warmup {
+          font-size: 11px;
+          padding: 3px 8px;
+          border-radius: 12px;
+          background: #dcfce7;
+          color: #16a34a;
+          font-weight: 600;
+        }
+
+        .smtp-warmup.at-limit {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+
+        .radio-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .radio-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          background: #f8fafc;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+        }
+
+        .radio-option input[type="radio"] {
+          width: 16px;
+          height: 16px;
+        }
+
+        .campaign-summary {
+          display: flex;
+          gap: 16px;
+          padding: 14px;
+          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+          border-radius: 10px;
+          margin-bottom: 18px;
+          font-weight: 500;
+          color: #0369a1;
+        }
+
+        .modal-error {
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          color: #dc2626;
+          padding: 12px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          font-size: 14px;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 20px;
+        }
+
+        .modal-actions .btn {
+          flex: 1;
+        }
+
+        .toggle-option {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px;
+          background: #f8fafc;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 500;
+        }
+
+        .toggle-option input[type="checkbox"] {
+          width: 18px;
+          height: 18px;
+          accent-color: var(--accent-primary);
+        }
+
+        .toggle-hint {
+          display: block;
+          margin-top: 6px;
+          color: var(--text-muted);
+          font-size: 12px;
         }
       `}</style>
 

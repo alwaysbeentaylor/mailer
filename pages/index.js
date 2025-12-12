@@ -147,6 +147,9 @@ export default function Home() {
             <span className="logo-badge">MAIL AGENT v2.0</span>
           </div>
           <div className="header-right">
+            <Link href="/campaigns" className="nav-link">
+              🚀 Campagnes
+            </Link>
             <Link href="/analytics" className="nav-link">
               📊 Analytics
             </Link>
@@ -155,6 +158,12 @@ export default function Home() {
             </Link>
             <Link href="/enrich" className="nav-link">
               🕵️ Enricher
+            </Link>
+            <Link href="/warmup" className="nav-link">
+              🔥 Warm-up
+            </Link>
+            <Link href="/settings" className="nav-link">
+              ⚙️ Settings
             </Link>
             <div className="stats-pill glass-panel">
               <span className="stat-value">{stats.sent}</span>

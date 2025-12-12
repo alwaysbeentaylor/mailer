@@ -1,6 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+
+const ENRICHER_RESULTS_KEY = 'skyeEnricherResults';
 
 export default function EnrichPage() {
     const [emails, setEmails] = useState([]);
@@ -11,6 +13,44 @@ export default function EnrichPage() {
     const [showTextInput, setShowTextInput] = useState(false);
     const [pasteText, setPasteText] = useState('');
     const [inputMode, setInputMode] = useState('email'); // 'email' of 'domain'
+
+    // Load saved results on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(ENRICHER_RESULTS_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                setResults(parsed.results || []);
+                setEmails(parsed.emails || []);
+            }
+        } catch (e) {
+            console.error('Error loading enricher results:', e);
+        }
+    }, []);
+
+    // Save results when they change
+    useEffect(() => {
+        if (results.length > 0 || emails.length > 0) {
+            try {
+                localStorage.setItem(ENRICHER_RESULTS_KEY, JSON.stringify({
+                    results,
+                    emails,
+                    savedAt: new Date().toISOString()
+                }));
+            } catch (e) {
+                console.error('Error saving enricher results:', e);
+            }
+        }
+    }, [results, emails]);
+
+    // Clear saved results
+    const clearResults = () => {
+        if (confirm('Weet je zeker dat je alle resultaten wilt wissen?')) {
+            setEmails([]);
+            setResults([]);
+            localStorage.removeItem(ENRICHER_RESULTS_KEY);
+        }
+    };
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -418,6 +458,9 @@ export default function EnrichPage() {
                                     <button onClick={exportAll} disabled={results.length === 0} className="btn btn-outline">
                                         📥 Download Alles
                                     </button>
+                                    <button onClick={clearResults} disabled={emails.length === 0} className="btn btn-danger">
+                                        🗑️ Wissen
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -640,6 +683,7 @@ export default function EnrichPage() {
         .btn-success { background: var(--success); color: white; }
         .btn-error { background: 'white'; border: 1px solid var(--error); color: var(--error); }
         .btn-outline { background: white; border: 1px solid #cbd5e1; color: #475569; }
+        .btn-danger { background: var(--error); color: white; }
 
         .btn-group { display: flex; flex-direction: column; gap: 8px; }
 

@@ -179,13 +179,27 @@ URL: ${websiteUrl}
 Branche: ${siteAnalysis.niche || 'bedrijf'}
 ${siteAnalysis.title ? `Site titel: "${siteAnalysis.title}"` : ''}
 
-=== WAT JE VOND OP HUN SITE (GEBRUIK DIT!) ===
-${siteAnalysis.slogans?.[0] ? `• Slogan: "${siteAnalysis.slogans[0]}"` : ''}
-${siteAnalysis.services?.slice(0, 3).map(s => `• Dienst: "${s}"`).join('\n') || ''}
-${siteAnalysis.city ? `• Locatie: ${siteAnalysis.city}` : ''}
-${siteAnalysis.uniqueObservations?.map(o => `• Observatie: "${o}"`).join('\n') || ''}
-${siteAnalysis.teamMembers?.length > 0 ? `• Team: ${siteAnalysis.teamMembers.join(', ')}` : ''}
-${siteAnalysis.aboutContent ? `• Over hen: "${siteAnalysis.aboutContent.slice(0, 150)}..."` : ''}
+=== 🎯 VERPLICHTE PERSONALISATIE - KIES MINIMAAL ÉÉN ===
+Je MOET de email beginnen met een van deze specifieke observaties van hun site.
+Dit is het BELANGRIJKSTE onderdeel - het bewijst dat je hun site echt hebt bekeken!
+
+${siteAnalysis.claims?.[0] ? `✅ OPTIE A - CLAIM: "Zag dat jullie ${siteAnalysis.claims[0]} - indrukwekkend!"` : ''}
+${siteAnalysis.testimonials?.[0] ? `✅ OPTIE B - REVIEW: "Las de review${siteAnalysis.testimonials[0].author ? ` van ${siteAnalysis.testimonials[0].author}` : ''} op jullie site..."` : ''}
+${siteAnalysis.specializations?.[0] ? `✅ OPTIE C - SPECIALISATIE: "Zag dat jullie gespecialiseerd zijn in ${siteAnalysis.specializations[0]}..."` : ''}
+${siteAnalysis.teamMembers?.[0] ? `✅ OPTIE D - TEAM: "Zag dat ${siteAnalysis.teamMembers[0]} deel is van het team..."` : ''}
+${siteAnalysis.city ? `✅ OPTIE E - LOCATIE: "Als bedrijf in ${siteAnalysis.city} weten jullie..."` : ''}
+${siteAnalysis.promos?.[0] ? `✅ OPTIE F - ACTIE: "Zag jullie actie '${siteAnalysis.promos[0]}' - slimme marketing!"` : ''}
+${siteAnalysis.services?.[0] ? `✅ OPTIE G - DIENST: "Zag dat jullie ${siteAnalysis.services[0]} aanbieden..."` : ''}
+${siteAnalysis.stats?.[0] ? `✅ OPTIE H - STATS: "Jullie claimen ${siteAnalysis.stats[0]} - dat is mooi!"` : ''}
+
+⚠️ KIES EEN VAN BOVENSTAANDE OPTIES EN VARIEER DE ZINSOPBOUW IN ${emailTone.toUpperCase()} STIJL!
+${!siteAnalysis.claims?.[0] && !siteAnalysis.city && !siteAnalysis.services?.[0] ? `⚠️ Weinig specifieke data gevonden - noem dan minimaal het beroep "${nicheLabel}" in de intro!` : ''}
+
+=== EXTRA WEBSITE DATA (VOOR CONTEXT) ===
+${siteAnalysis.services?.slice(0, 4).map(s => `• Dienst: "${s}"`).join('\n') || ''}
+${siteAnalysis.usps?.slice(0, 3).map(u => `• USP: "${u}"`).join('\n') || ''}
+${siteAnalysis.prices?.slice(0, 2).map(p => `• Prijs: ${p}`).join('\n') || ''}
+${siteAnalysis.aboutContent ? `• Over hen: "${siteAnalysis.aboutContent.slice(0, 120)}..."` : ''}
 
 === STIJL: ${emailTone.toUpperCase()} ===
 ⚠️ DIT IS DE BELANGRIJKSTE INSTRUCTIE! VOLG DEZE STIJL EXACT:
@@ -201,36 +215,61 @@ ${resultExample}
 VOORBEELD CTA (KOPIEER DEZE STIJL!):
 ${ctaExample}
 
-=== EMAIL STRUCTUUR ===
+=== ⚠️ VERPLICHT OUTPUT FORMAAT ===
+Je MOET de email in EXACT dit formaat schrijven met deze labels:
 
-SUBJECT: "${selectedSubjectTemplate.replace(/{businessName}/g, businessName)}"
+SUBJECT: [onderwerp hier]
 
 INTRO:
-[⚠️ CRITIQUE: ${forcedOpening ? `START JE EMAIL MET DEZE EXACTE OBSERVATIE: "${forcedOpening}" (of een variatie hierop in ${emailTone} stijl).` : `Noem direct iets specifieks wat je hierboven bij 'WAT JE VOND OP HUN SITE' ziet.`} Dit bewijst dat je hun site echt hebt gezien. Maak het NIET generiek.]
+[Persoonlijke opening - KIES EEN VAN DE PERSONALISATIE OPTIES HIERBOVEN]
 
 AUDIT:
-${auditContent}
-${painPoints ? `\n=== BRANCHE PIJNPUNTEN (GEBRUIK DIT IN AUDIT/RESULTAAT!) ===\nFocus op deze specifieke problemen van ${siteAnalysis.niche} als dat relevant is:\n${painPoints}\n` : ''}
+[3 bullet points met problemen]
 
 OPLOSSING:
-${solutionContent}
+[3 bullet points met oplossingen]
 
 RESULTAAT:
-[⚠️ SCHRIJF DIT IN DE ${emailTone.toUpperCase()} STIJL! Kijk naar het voorbeeld hierboven.]
-${mustMentionNicheInResult ? `⚠️ VERPLICHT: Omdat er geen specifieke link/slogan in de intro staat, MOET je het beroep "${nicheLabel}" expliciet noemen in dit resultaat vakje! Dit maakt de email persoonlijk. Voorbeeld: "Als ${nicheLabel} krijg je ${resultClaim}"` : `Pas bij ${siteAnalysis.niche || 'hen'}: ${resultClaim}`}
+[Wat ze kunnen bereiken - noem hun beroep als er geen specifieke observatie was]
 
 CTA:
-[⚠️ SCHRIJF DIT IN DE ${emailTone.toUpperCase()} STIJL! Kijk naar het voorbeeld hierboven.]
+[Call to action - uitnodiging voor gesprek]
 
-=== KRITIEKE INSTRUCTIE ===
-De INTRO, RESULTAAT en CTA moeten DUIDELIJK de ${emailTone.toUpperCase()} stijl hebben!
-Gebruik Maximaal ${toneSettings.emojiLimit} emoji's in de hele email.
+=== KRITIEKE REGELS ===
+1. GEBRUIK EXACT de labels INTRO:, AUDIT:, OPLOSSING:, RESULTAAT:, CTA: - anders werkt de email niet!
+2. De INTRO moet een SPECIFIEKE observatie van hun site bevatten (kies uit de opties hierboven!)
+3. De INTRO, RESULTAAT en CTA moeten DUIDELIJK de ${emailTone.toUpperCase()} stijl hebben!
+4. Gebruik Maximaal ${toneSettings.emojiLimit} emoji's in de hele email.
+5. GEEN generieke zinnen zoals "ik bekeek jullie site" - wees SPECIFIEK!
 ${sessionPrompt ? `
 === ⚠️ EXTRA INSTRUCTIES VAN DE VERZENDER (BELANGRIJK!) ===
 ${sessionPrompt}
 ⚠️ VERWERK DEZE EXTRA INSTRUCTIES IN DE EMAIL!
 ` : ''}
-SCHRIJF NU:
+
+=== VOORBEELD VAN HET JUISTE FORMAAT ===
+SUBJECT: Bakkerij de Koning - even langskomen 👋
+
+INTRO:
+Hoi! Ik las jullie slogan "Vers gebakken met liefde" en dacht direct: wat een mooie boodschap! Maar ik zag ook een paar dingen op de site die jullie vast niet doorhebben.
+
+AUDIT:
+- 📱 De site werkt niet zo fijn op telefoon
+- 🤔 Bezoekers weten niet goed wat de volgende stap is  
+- ⏳ De laadtijd kan wat sneller
+
+OPLOSSING:
+- 🌟 Een snellere site maakt iedereen blij
+- 👆 Een duidelijke bestelknop helpt bezoekers verder
+- 💫 Een moderne look geeft vertrouwen
+
+RESULTAAT:
+Als bakker kan je met kleine aanpassingen veel meer uit de site halen. Klanten die online bestellen voordat ze langskomen! 😊
+
+CTA:
+Zullen we even bellen? Dan leg ik het rustig uit en kijken we samen wat past.
+
+=== SCHRIJF NU DE EMAIL ===
 `;
 
   // Log wat we naar de AI sturen voor debugging
@@ -260,8 +299,8 @@ SCHRIJF NU:
   const cleanUrl = (url) => url.replace(/(^\w+:|^)\/\//, '').replace('www.', '').replace(/\/$/, '');
   const cleanName = cleanUrl(businessName); // Zorgt dat URLs in subject er strak uitzien
 
-  // Use the tone-specific subject template as default
-  let subject = selectedSubjectTemplate.replace(businessName, cleanName);
+  // Use the tone-specific subject template as default - PROPERLY replace placeholder
+  let subject = selectedSubjectTemplate.replace(/{businessName}/g, cleanName);
   let sections = {
     intro: '',
     audit: '',
@@ -274,7 +313,8 @@ SCHRIJF NU:
   if (text.includes("SUBJECT:")) {
     const subjectMatch = text.match(/SUBJECT:\s*(.+?)(?:\n|$)/);
     if (subjectMatch && subjectMatch[1].trim().length > 5) {
-      subject = subjectMatch[1].trim();
+      // Also replace placeholders in AI-generated subject
+      subject = subjectMatch[1].trim().replace(/{businessName}/g, cleanName);
     }
   }
 
@@ -298,6 +338,77 @@ SCHRIJF NU:
   console.log(`   📝 Secties: intro=${!!sections.intro}, audit=${!!sections.audit}, boosters=${!!sections.boosters}, resultaat=${!!sections.resultaat}, cta=${!!sections.cta}`);
 
   return { subject, body, sections };
+}
+
+// === 🆕 AI QUALITY CHECK ===
+// Controleert de gegenereerde email op logische fouten en onzinnige zinnen
+async function validateEmailQuality(sections, businessName, emailTone) {
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash",
+    generationConfig: { temperature: 0.1 } // Lage temp voor consistente beoordeling
+  });
+
+  const emailContent = `
+INTRO: ${sections.intro || '(leeg)'}
+AUDIT: ${sections.audit || '(leeg)'}
+OPLOSSING: ${sections.boosters || '(leeg)'}
+RESULTAAT: ${sections.resultaat || '(leeg)'}
+CTA: ${sections.cta || '(leeg)'}
+  `.trim();
+
+  const validationPrompt = `
+Je bent een strenge kwaliteitscontrole voor cold emails. 
+Beoordeel de volgende email voor ${businessName} op deze criteria:
+
+1. LOGICA: Zijn alle zinnen logisch en begrijpelijk? Geen onafgemaakte zinnen?
+2. RELEVANTIE: Past de inhoud bij een bedrijf (geen onzin)?
+3. STRUCTUUR: Heeft elke sectie echte content (niet alleen placeholder tekst)?
+4. TAAL: Is het correct Nederlands zonder rare woorden/karakters?
+5. PERSONALISATIE: Wordt er iets specifieks over het bedrijf genoemd?
+
+EMAIL:
+${emailContent}
+
+ANTWOORD IN DIT EXACTE FORMAAT:
+SCORE: [1-10]
+PROBLEMEN: [lijst van problemen, of "geen"]
+VERDICT: [OK of HERGENEREREN]
+
+Voorbeelden:
+- Score 8-10 = OK (kleine issues zijn acceptabel)
+- Score 5-7 = HERGENEREREN (matige kwaliteit)
+- Score 1-4 = HERGENEREREN (slechte kwaliteit)
+`;
+
+  try {
+    const result = await model.generateContent(validationPrompt);
+    const response = result.response.text().trim();
+
+    // Parse het antwoord
+    const scoreMatch = response.match(/SCORE:\s*(\d+)/i);
+    const verdictMatch = response.match(/VERDICT:\s*(OK|HERGENEREREN)/i);
+    const problemsMatch = response.match(/PROBLEMEN:\s*(.+?)(?=VERDICT:|$)/is);
+
+    const score = scoreMatch ? parseInt(scoreMatch[1]) : 5;
+    const verdict = verdictMatch ? verdictMatch[1].toUpperCase() : 'OK';
+    const problems = problemsMatch ? problemsMatch[1].trim() : 'geen';
+
+    console.log(`   🔍 Quality check: Score ${score}/10 - ${verdict}`);
+    if (problems !== 'geen' && problems.toLowerCase() !== 'geen') {
+      console.log(`   ⚠️ Problemen: ${problems.slice(0, 100)}...`);
+    }
+
+    return {
+      score,
+      verdict,
+      problems,
+      shouldRegenerate: verdict === 'HERGENEREREN' || score < 6
+    };
+  } catch (error) {
+    console.log(`   ⚠️ Quality check mislukt: ${error.message}`);
+    // Bij fout, gewoon doorgaan
+    return { score: 7, verdict: 'OK', problems: 'check failed', shouldRegenerate: false };
+  }
 }
 
 // Fallback template - NOW WITH TONE SUPPORT
@@ -403,7 +514,8 @@ export default async function handler(req, res) {
     preGeneratedData = null, // Nieuwe optie: gebruik bestaande data
     customSubject = "", // Custom subject line (leeg = auto)
     customPreheader = "", // Custom pre-header (leeg = auto)
-    sessionPrompt = "" // Tijdelijke extra AI instructies (voor batch sessie)
+    sessionPrompt = "", // Tijdelijke extra AI instructies (voor batch sessie)
+    smtpConfig = null // Dynamische SMTP configuratie (voor campaign systeem)
   } = req.body;
 
   // Handle "random" tone - kies willekeurige stijl
@@ -458,25 +570,61 @@ export default async function handler(req, res) {
       console.log(`✅ Pre-generated content ingeladen!`);
     } else if (process.env.GEMINI_API_KEY) {
       console.log(`\n🤖 AI generatie starten...`);
+
       try {
-        const result = await generateEmailWithAnalysis({
-          businessName,
-          websiteUrl,
-          contactPerson,
-          emailTone,
-          siteAnalysis: siteAnalysis || {},
-          sessionPrompt
-        });
-        subject = result.subject;
-        body = result.body;
-        sections = result.sections;
-        usedAI = true;
-        console.log(`✅ AI email succesvol gegenereerd!`);
-      } catch (aiError) {
+        const MAX_RETRIES = 2;
+        let attempts = 0;
+        let qualityOK = false;
+
+        while (attempts <= MAX_RETRIES && !qualityOK) {
+          attempts++;
+          console.log(`   📝 Poging ${attempts}/${MAX_RETRIES + 1}...`);
+
+          try {
+            const result = await generateEmailWithAnalysis({
+              businessName,
+              websiteUrl,
+              contactPerson,
+              emailTone,
+              siteAnalysis: siteAnalysis || {},
+              sessionPrompt: attempts > 1
+                ? `${sessionPrompt}\n\n⚠️ VORIGE POGING WAS AFGEKEURD - SCHRIJF BETERE, LOGISCHERE ZINNEN!`
+                : sessionPrompt
+            });
+            subject = result.subject;
+            body = result.body;
+            sections = result.sections;
+            usedAI = true;
+
+            // 🆕 QUALITY CHECK - alleen als we sections hebben
+            if (sections && (sections.intro || sections.audit)) {
+              const quality = await validateEmailQuality(sections, businessName, emailTone);
+
+              if (quality.shouldRegenerate && attempts <= MAX_RETRIES) {
+                console.log(`   🔄 Kwaliteit te laag (${quality.score}/10), opnieuw genereren...`);
+                continue; // Probeer opnieuw
+              }
+
+              qualityOK = true;
+              console.log(`   ✅ Kwaliteit goedgekeurd: ${quality.score}/10`);
+            } else {
+              // Geen sections = skip quality check
+              qualityOK = true;
+            }
+
+          } catch (aiError) {
+            console.error(`   ❌ AI poging ${attempts} mislukt: ${aiError.message}`);
+            if (attempts > MAX_RETRIES) {
+              throw aiError; // Geef door naar outer catch
+            }
+          }
+        }
+
+        console.log(`✅ AI email succesvol gegenereerd na ${attempts} poging(en)!`);
+      } catch (outerError) {
+        // Fallback als ALLE pogingen mislukken
         console.error(`\n❌ AI FOUT - Fallback wordt gebruikt!`);
-        console.error(`   Error type: ${aiError.name}`);
-        console.error(`   Error message: ${aiError.message}`);
-        console.error(`   Full error:`, aiError);
+        console.error(`   Error: ${outerError.message}`);
         const fallback = generateFallbackEmail({ businessName, websiteUrl, contactPerson, siteAnalysis, emailTone });
         subject = fallback.subject;
         body = fallback.body;
@@ -564,13 +712,39 @@ export default async function handler(req, res) {
       return `${BASE_URL}/api/track?id=${emailId}&type=${linkType}&url=${encodedUrl}`;
     };
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
+    // Dynamische SMTP: gebruik smtpConfig als aanwezig, anders env vars
+    let transporter;
+    let fromAddress;
+
+    if (smtpConfig && smtpConfig.host && smtpConfig.user && smtpConfig.pass) {
+      // Gebruik dynamische SMTP configuratie
+      console.log(`📡 Dynamische SMTP: ${smtpConfig.host}:${smtpConfig.port || 587}`);
+      transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: parseInt(smtpConfig.port) || 587,
+        secure: parseInt(smtpConfig.port) === 465,
+        auth: {
+          user: smtpConfig.user,
+          pass: smtpConfig.pass
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000
+      });
+      fromAddress = smtpConfig.fromName
+        ? `"${smtpConfig.fromName}" <${smtpConfig.user}>`
+        : smtpConfig.user;
+    } else {
+      // Fallback naar env vars (Gmail)
+      console.log('📡 SMTP via env vars (Gmail)');
+      transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD
+        }
+      });
+      fromAddress = `"SKYE" <${process.env.GMAIL_USER}>`;
+    }
 
     // Extract sections (or fallback if empty)
     if (!sections) {
@@ -600,7 +774,11 @@ export default async function handler(req, res) {
           sections.resultaat = pars[3] || '';
           sections.cta = pars[4] || '';
         }
-        // really nothing available? Use hardcoded fallback
+      }
+
+      // ONLY use hardcoded fallback if ALL sections are truly empty
+      if (!sections || (!sections.intro && !sections.audit && !sections.boosters && !sections.resultaat && !sections.cta)) {
+        console.log('⚠️ Geen content geparsed, gebruik hardcoded fallback');
         sections = {
           intro: `Jullie site **verliest klanten**. **Trage laadtijd**, niet mobiel, geen duidelijke actieknop. Hieronder wat ik zag op jullie site:`,
           audit: `- ❌ Niet mobielvriendelijk\n- ❌ Geen duidelijke call-to-action\n- ❌ Trage laadtijd`,
@@ -610,6 +788,14 @@ export default async function handler(req, res) {
         };
       }
     }
+
+    // Log sections for debugging
+    console.log('📧 Email sections:');
+    console.log(`   intro: ${sections.intro ? '✅' : '❌'} (${sections.intro?.length || 0} chars)`);
+    console.log(`   audit: ${sections.audit ? '✅' : '❌'} (${sections.audit?.length || 0} chars)`);
+    console.log(`   boosters: ${sections.boosters ? '✅' : '❌'} (${sections.boosters?.length || 0} chars)`);
+    console.log(`   resultaat: ${sections.resultaat ? '✅' : '❌'} (${sections.resultaat?.length || 0} chars)`);
+    console.log(`   cta: ${sections.cta ? '✅' : '❌'} (${sections.cta?.length || 0} chars)`);
 
     // Helper function to format text (paragraphs + bullet points)
     const formatSectionContent = (text, textColor = '#333333', fontSize = '13px') => {
@@ -908,7 +1094,7 @@ export default async function handler(req, res) {
 </html>`;
 
     const info = await transporter.sendMail({
-      from: `"SKYE" <${process.env.GMAIL_USER}>`,
+      from: fromAddress,
       to: toEmail,
       subject: subject,
       text: body,  // Plain text fallback

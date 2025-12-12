@@ -28,44 +28,85 @@ export async function analyzeWebsite(url) {
         // Combineer de BELANGRIJKSTE content voor niche detectie (gewogen)
         const priorityContent = `${pageTitle} ${pageTitle} ${pageTitle} ${h1Text} ${h1Text} ${metaDescription} ${mainHeadings}`;
 
-        // === DIEPE ANALYSE: Zoek naar TEAM of OVER ONS pagina ===
-        let extraHtml = '';
-        try {
-            // Zoek links die wijzen naar team/over ons
-            let subLink = '';
-            $('a').each((i, el) => {
-                const href = $(el).attr('href');
-                const text = $(el).text().toLowerCase();
-                if (!subLink && href && (text.includes('team') || text.includes('over') || text.includes('about'))) {
-                    if (!href.startsWith('http') && !href.startsWith('#') && !href.startsWith('mailto')) {
-                        subLink = href;
-                    } else if (href.startsWith(url) || href.startsWith('/')) {
-                        subLink = href;
-                    }
+        // === DIEPE ANALYSE: Scrape tot 3 pagina's voor maximale personalisatie ===
+        let extraHtmlPages = [];
+        const urlObj = new URL(url);
+        const baseOrigin = urlObj.origin;
+
+        // Zoek relevante subpagina's
+        const subPagePatterns = [
+            { keywords: ['team', 'over', 'about', 'wie zijn wij', 'ons verhaal'], priority: 1 },
+            { keywords: ['diensten', 'services', 'aanbod', 'wat we doen', 'producten'], priority: 2 },
+            { keywords: ['contact', 'locatie', 'bereikbaar'], priority: 3 }
+        ];
+
+        const foundLinks = [];
+        const seenHrefs = new Set([url, urlObj.pathname]);
+
+        $('a').each((i, el) => {
+            const href = $(el).attr('href');
+            const text = $(el).text().toLowerCase().trim();
+
+            if (!href || href.startsWith('#') || href.startsWith('mailto') || href.startsWith('tel:')) return;
+            if (seenHrefs.has(href)) return;
+
+            // Normaliseer href
+            let fullUrl;
+            try {
+                if (href.startsWith('http')) {
+                    if (!href.startsWith(baseOrigin)) return; // Skip externe links
+                    fullUrl = href;
+                } else if (href.startsWith('/')) {
+                    fullUrl = baseOrigin + href;
+                } else {
+                    fullUrl = new URL(href, url).href;
                 }
-            });
+            } catch { return; }
 
-            if (subLink) {
-                console.log(`   ↪️ Diepe analyse: subpagina gevonden: ${subLink}`);
-                const urlObj = new URL(url);
-                // Correcte absolute URL bouwen
-                const subUrl = subLink.startsWith('http') ? subLink : new URL(subLink, urlObj.origin).href;
+            // Check of dit een interessante pagina is
+            for (const pattern of subPagePatterns) {
+                if (pattern.keywords.some(kw => text.includes(kw) || href.toLowerCase().includes(kw))) {
+                    foundLinks.push({ url: fullUrl, priority: pattern.priority, text });
+                    seenHrefs.add(href);
+                    seenHrefs.add(fullUrl);
+                    break;
+                }
+            }
+        });
 
-                const subRes = await fetch(subUrl, {
+        // Sorteer op prioriteit en neem max 2 extra pagina's (3 totaal incl. homepage)
+        foundLinks.sort((a, b) => a.priority - b.priority);
+        const pagesToFetch = foundLinks.slice(0, 2);
+
+        console.log(`   🔍 DEEP MODE: ${pagesToFetch.length} extra pagina's gevonden`);
+
+        // Fetch alle extra pagina's parallel
+        const fetchPromises = pagesToFetch.map(async (link) => {
+            try {
+                console.log(`   ↪️ Fetching: ${link.text} (${link.url.slice(0, 50)}...)`);
+                const res = await fetch(link.url, {
                     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
                     timeout: 6000
                 });
-                if (subRes.ok) {
-                    extraHtml = await subRes.text();
-                    console.log(`   ✅ Subpagina content geladen (${extraHtml.length} bytes)`);
+                if (res.ok) {
+                    const html = await res.text();
+                    console.log(`   ✅ ${link.text}: ${html.length} bytes`);
+                    return html;
                 }
+            } catch (e) {
+                console.log(`   ⚠️ Kon ${link.text} niet laden: ${e.message}`);
             }
+            return '';
+        });
+
+        try {
+            extraHtmlPages = await Promise.all(fetchPromises);
         } catch (e) {
-            console.log(`   ⚠️ Kon subpagina niet laden: ${e.message}`);
+            console.log(`   ⚠️ Fout bij parallel laden: ${e.message}`);
         }
 
-        // Combineer HTML voor extractie (zodat we teamleden/teksten van beide pagina's vinden)
-        const combinedHtml = html + '\n' + extraHtml;
+        // Combineer HTML voor extractie (homepage + alle subpagina's)
+        const combinedHtml = html + '\n' + extraHtmlPages.join('\n');
 
         // === NICHE/BRANCHE DETECTIE - DYNAMISCH ===
         const allNicheData = loadNiches();
@@ -260,11 +301,130 @@ export async function analyzeWebsite(url) {
             }
         });
 
+        // === 🆕 DEEP PERSONALIZATION EXTRACTIE ===
+
+        // 1. USP's en unieke claims extractie
+        const usps = [];
+        // Zoek in feature/voordeel/usp secties
+        $fresh('[class*="feature"], [class*="voordeel"], [class*="usp"], [class*="benefit"], [class*="waarom"], [class*="kenmerk"]').each((i, el) => {
+            $fresh(el).find('li, h3, h4, p').each((j, item) => {
+                const text = $fresh(item).text().trim();
+                if (text.length > 8 && text.length < 80 && !usps.includes(text)) {
+                    usps.push(text);
+                }
+            });
+        });
+
+        // Zoek naar specifieke claim-patronen in de tekst
+        const claimPatterns = [
+            { regex: /(\d+)\s*(?:\+)?\s*(?:jaar|jaren)\s+(?:ervaring|actief|in het vak)/gi, type: 'ervaring' },
+            { regex: /(?:meer dan|ruim|>|al)\s*(\d+)\s*(?:\+)?\s*(?:klanten|projecten|bedrijven|opdrachten|tevreden)/gi, type: 'volume' },
+            { regex: /(gratis|kosteloos|vrijblijvend).{0,25}(?:offerte|advies|bezorging|consult|intake)/gi, type: 'gratis' },
+            { regex: /24[\/\s]*7.{0,20}(?:bereikbaar|service|support|beschikbaar)/gi, type: 'bereikbaarheid' },
+            { regex: /(\d+)%\s*(?:tevredenheid|garantie|korting)/gi, type: 'garantie' },
+            { regex: /(?:familie|familiebedrijf|sinds\s+\d{4})/gi, type: 'historie' },
+            { regex: /(?:gecertificeerd|erkend|gediplomeerd|vakbekwaam)/gi, type: 'certificering' }
+        ];
+
+        const foundClaims = [];
+        const bodyText = $fresh('body').text();
+        for (const pattern of claimPatterns) {
+            const matches = bodyText.match(pattern.regex);
+            if (matches) {
+                matches.forEach(m => {
+                    const clean = m.trim();
+                    if (clean.length > 5 && clean.length < 60 && !foundClaims.includes(clean)) {
+                        foundClaims.push(clean);
+                        console.log(`   💎 Claim gevonden: "${clean}" (${pattern.type})`);
+                    }
+                });
+            }
+        }
+
+        // 2. Testimonials/Reviews tekst extractie
+        const testimonials = [];
+        $fresh('[class*="review"], [class*="testimonial"], [class*="klant"], [class*="quote"], blockquote').each((i, el) => {
+            const text = $fresh(el).text().trim().replace(/\s+/g, ' ');
+            // Zoek naar quotes (tekst tussen aanhalingstekens of in blockquote)
+            if (text.length > 20 && text.length < 200) {
+                // Probeer naam te extraheren (vaak aan het eind)
+                const nameMatch = text.match(/[-–—]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*$/);
+                testimonials.push({
+                    text: nameMatch ? text.replace(nameMatch[0], '').trim() : text,
+                    author: nameMatch ? nameMatch[1] : null
+                });
+            }
+        });
+        if (testimonials.length > 0) {
+            console.log(`   ⭐ ${testimonials.length} testimonial(s) gevonden`);
+        }
+
+        // 3. Prijzen detectie
+        const prices = [];
+        const pricePatterns = [
+            /€\s*(\d+(?:[.,]\d{2})?)/g,
+            /vanaf\s+€?\s*(\d+)/gi,
+            /(\d+)\s*euro/gi,
+            /prijs[:\s]+€?\s*(\d+)/gi
+        ];
+        for (const pattern of pricePatterns) {
+            const matches = combinedHtml.match(pattern);
+            if (matches) {
+                matches.slice(0, 3).forEach(m => {
+                    if (!prices.includes(m)) prices.push(m);
+                });
+            }
+        }
+        if (prices.length > 0) {
+            console.log(`   💰 Prijzen gevonden: ${prices.slice(0, 3).join(', ')}`);
+        }
+
+        // 4. Aanbiedingen/Acties detectie
+        const promos = [];
+        const promoPatterns = [
+            /(\d+)%\s*korting/gi,
+            /gratis\s+(?:bij|vanaf|actie)/gi,
+            /actie[:\s].{5,40}/gi,
+            /aanbieding[:\s].{5,40}/gi,
+            /nu\s+(?:slechts|maar|voor)\s+€?\d+/gi
+        ];
+        for (const pattern of promoPatterns) {
+            const matches = combinedHtml.match(pattern);
+            if (matches) {
+                matches.slice(0, 2).forEach(m => {
+                    const clean = m.trim();
+                    if (!promos.includes(clean)) promos.push(clean);
+                });
+            }
+        }
+        if (promos.length > 0) {
+            console.log(`   🏷️ Promo's gevonden: ${promos.join(', ')}`);
+        }
+
+        // 5. Specialisaties uit tekst
+        const specializations = [];
+        const specPatterns = [
+            /gespecialiseerd\s+in\s+([^.!?,]{5,50})/gi,
+            /specialist\s+(?:in|op\s+het\s+gebied\s+van)\s+([^.!?,]{5,50})/gi,
+            /expert\s+(?:in|op)\s+([^.!?,]{5,50})/gi
+        ];
+        for (const pattern of specPatterns) {
+            let m;
+            while ((m = pattern.exec(combinedHtml)) !== null) {
+                if (m[1] && !specializations.includes(m[1].trim())) {
+                    specializations.push(m[1].trim());
+                    console.log(`   🎯 Specialisatie: "${m[1].trim()}"`);
+                }
+            }
+        }
+
         // Feature flags
         const hasOpeningHours = /openingstijden|geopend|open van/i.test(combinedHtml);
-        const hasTestimonials = $fresh('[class*="review"], [class*="testimonial"]').length > 0;
+        const hasTestimonials = testimonials.length > 0 || $fresh('[class*="review"], [class*="testimonial"]').length > 0;
         const hasBlog = $fresh('[class*="blog"], [class*="news"], article').length > 0;
         const isFacebookPage = /facebook\.com|fb\.com/i.test(url);
+        const hasPricing = prices.length > 0;
+        const hasPromos = promos.length > 0;
 
         // Build analysis object
         // Determine which knowledge file this niche belongs to
@@ -337,15 +497,36 @@ export async function analyzeWebsite(url) {
             usesFacebookAsWebsite: isFacebookPage,
             knowledgeFile, // Which .md file in knowledge/niches/ to consult
             uniqueObservations: [],
-            extractedEmails: [...new Set(extractedEmails)] // 🆕 Alle gevonden emails
+            extractedEmails: [...new Set(extractedEmails)], // Alle gevonden emails
+            // 🆕 DEEP PERSONALIZATION DATA
+            usps: [...new Set(usps)].slice(0, 5),
+            claims: foundClaims.slice(0, 5),
+            testimonials: testimonials.slice(0, 3),
+            prices: prices.slice(0, 5),
+            promos: promos.slice(0, 3),
+            specializations: specializations.slice(0, 3),
+            hasPricing,
+            hasPromos
         };
 
-        // Generate observations
-        if (analysis.city) analysis.uniqueObservations.push(`Gevestigd in ${analysis.city}`);
+        // Generate observations - ENHANCED voor meer personalisatie opties
         if (analysis.slogans.length > 0) analysis.uniqueObservations.push(`Slogan: "${analysis.slogans[0]}"`);
+        if (analysis.city) analysis.uniqueObservations.push(`Gevestigd in ${analysis.city}`);
+        if (analysis.claims.length > 0) analysis.uniqueObservations.push(`Claim: "${analysis.claims[0]}"`);
+        if (analysis.testimonials.length > 0) {
+            const t = analysis.testimonials[0];
+            analysis.uniqueObservations.push(`Review${t.author ? ` van ${t.author}` : ''}: "${t.text.slice(0, 60)}..."`);
+        }
+        if (analysis.specializations.length > 0) analysis.uniqueObservations.push(`Gespecialiseerd in: ${analysis.specializations[0]}`);
         if (analysis.stats.length > 0) analysis.uniqueObservations.push(`Ze noemen: ${analysis.stats[0]}`);
-        if (analysis.hasTestimonials) analysis.uniqueObservations.push("Heeft reviews op de site");
+        if (analysis.promos.length > 0) analysis.uniqueObservations.push(`Actie: "${analysis.promos[0]}"`);
+        if (analysis.services.length > 0) analysis.uniqueObservations.push(`Dienst: "${analysis.services[0]}"`);
+        if (analysis.teamMembers.length > 0) analysis.uniqueObservations.push(`Team: ${analysis.teamMembers[0]}`);
+        if (analysis.hasTestimonials && analysis.testimonials.length === 0) analysis.uniqueObservations.push("Heeft reviews op de site");
         if (analysis.isFacebookPage) analysis.uniqueObservations.push(`🔥 Gebruikt Facebook als website`);
+
+        // Log samenvatting
+        console.log(`   📊 Personalisatie score: ${analysis.uniqueObservations.length} unieke hooks gevonden`);
 
         return analysis;
     } catch (error) {
