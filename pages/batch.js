@@ -30,9 +30,26 @@ export default function BatchPage() {
   const [defaultTone, setDefaultTone] = useState('professional');
   const [verifyDomains, setVerifyDomains] = useState(true); // Verify domains before sending
 
+  // 🔥 GODMODE
+  const [sendMode, setSendMode] = useState('normal'); // normal, turbo, godmode
+  const [godmodeStats, setGodmodeStats] = useState(null);
+  const [godmodeConfirm, setGodmodeConfirm] = useState(false);
+
   // Load SMTP accounts on mount
   useEffect(() => {
-    setSmtpAccounts(getSmtpAccounts());
+    async function loadSmtp() {
+      try {
+        const res = await fetch('/api/smtp-accounts');
+        const data = await res.json();
+        if (data.success) {
+          setSmtpAccounts(data.accounts || []);
+        }
+      } catch (e) {
+        console.error('Failed to load SMTP accounts:', e);
+        setSmtpAccounts(getSmtpAccounts());
+      }
+    }
+    loadSmtp();
   }, []);
 
   // Pagination
@@ -349,6 +366,157 @@ export default function BatchPage() {
     router.push(`/campaigns?id=${campaign.id}`);
   };
 
+  // 🔥 GODMODE - Maximum speed sending
+  const handleGodmode = async () => {
+    const validLeads = leads.filter(l => l.toEmail && l.businessName && l.websiteUrl);
+
+    if (validLeads.length === 0) {
+      setError("Geen geldige leads om te versturen");
+      return;
+    }
+
+    const activeSmtps = smtpAccounts.filter(a => a.active !== false);
+    if (activeSmtps.length === 0) {
+      setError("Geen actieve SMTP accounts. Ga naar Settings.");
+      return;
+    }
+
+    if (!godmodeConfirm) {
+      // Show confirmation
+      setGodmodeStats({
+        emails: validLeads.length,
+        smtps: activeSmtps.length,
+        estimatedTime: Math.ceil(validLeads.length / (activeSmtps.length * 10) * 0.5) + ' seconden'
+      });
+      setGodmodeConfirm(true);
+      return;
+    }
+
+    // Execute GODMODE
+    setSending(true);
+    setError(null);
+    setResults(null);
+    setGodmodeConfirm(false);
+    setProgress({ current: 0, total: validLeads.length });
+
+    // Initialize all lead statuses
+    const initialStatuses = {};
+    validLeads.forEach(lead => {
+      initialStatuses[lead.id] = 'waiting';
+    });
+    setLeadStatuses(initialStatuses);
+
+    console.log('🔥🔥🔥 GODMODE ACTIVATED 🔥🔥🔥');
+
+    try {
+      // Distribute emails across SMTPs
+      const batches = activeSmtps.map(smtp => ({
+        smtp,
+        emails: []
+      }));
+
+      validLeads.forEach((lead, index) => {
+        const batchIndex = index % batches.length;
+        batches[batchIndex].emails.push(lead);
+      });
+
+      let totalSent = 0;
+      let totalFailed = 0;
+      const details = [];
+
+      // Process all batches in parallel
+      const batchPromises = batches.filter(b => b.emails.length > 0).map(async (batch) => {
+        const chunkSize = 10; // 10 emails at once per SMTP
+
+        for (let i = 0; i < batch.emails.length; i += chunkSize) {
+          const chunk = batch.emails.slice(i, i + chunkSize);
+
+          const chunkResults = await Promise.allSettled(
+            chunk.map(async (lead) => {
+              // Mark as processing
+              setLeadStatuses(prev => ({ ...prev, [lead.id]: 'processing' }));
+
+              try {
+                const res = await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    toEmail: lead.toEmail,
+                    businessName: lead.businessName,
+                    websiteUrl: lead.websiteUrl,
+                    contactPerson: lead.contactPerson,
+                    emailTone: lead.emailTone,
+                    smtpAccountId: batch.smtp.id,
+                    sessionPrompt: sessionPrompt
+                  })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                  setLeadStatuses(prev => ({ ...prev, [lead.id]: 'sent' }));
+                  return { success: true, lead };
+                } else {
+                  setLeadStatuses(prev => ({ ...prev, [lead.id]: 'failed' }));
+                  return { success: false, lead, error: data.error?.message || 'Failed' };
+                }
+              } catch (err) {
+                setLeadStatuses(prev => ({ ...prev, [lead.id]: 'failed' }));
+                return { success: false, lead, error: err.message };
+              }
+            })
+          );
+
+          // Update progress
+          chunkResults.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              if (result.value.success) {
+                totalSent++;
+                details.push({
+                  email: result.value.lead.toEmail,
+                  business: result.value.lead.businessName,
+                  status: 'sent'
+                });
+              } else {
+                totalFailed++;
+                details.push({
+                  email: result.value.lead.toEmail,
+                  business: result.value.lead.businessName,
+                  status: 'failed'
+                });
+              }
+            } else {
+              totalFailed++;
+            }
+            setProgress(prev => ({ ...prev, current: totalSent + totalFailed }));
+          });
+        }
+      });
+
+      await Promise.all(batchPromises);
+
+      console.log(`🏁 GODMODE COMPLETE: ${totalSent} sent, ${totalFailed} failed`);
+
+      setResults({
+        sent: totalSent,
+        failed: totalFailed,
+        details
+      });
+
+      // Clear successfully sent leads
+      const sentEmails = details.filter(d => d.status === 'sent').map(d => d.email);
+      setLeads(prevLeads => prevLeads.filter(l => !sentEmails.includes(l.toEmail)));
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+      setCurrentProcessingId(null);
+      setLeadStatuses({});
+      setGodmodeStats(null);
+    }
+  };
+
   return (
     <>
       <Head>
@@ -425,7 +593,15 @@ export default function BatchPage() {
                 disabled={sending || leads.length === 0}
                 className="btn btn-secondary"
               >
-                {sending ? `Versturen... (${progress.current}/${progress.total})` : '📧 Direct Versturen'}
+                {sending && sendMode === 'normal' ? `Versturen... (${progress.current}/${progress.total})` : '📧 Normaal'}
+              </button>
+
+              <button
+                onClick={handleGodmode}
+                disabled={sending || leads.length === 0 || smtpAccounts.filter(a => a.active !== false).length === 0}
+                className="btn btn-godmode"
+              >
+                {sending && sendMode === 'godmode' ? `🔥 ${progress.current}/${progress.total}` : '🔥 GODMODE'}
               </button>
 
               <button
@@ -433,9 +609,39 @@ export default function BatchPage() {
                 disabled={sending || leads.length === 0}
                 className="btn btn-primary"
               >
-                🚀 Start Campagne
+                🚀 Campagne
               </button>
             </div>
+
+            {/* GODMODE Confirmation Dialog */}
+            {godmodeConfirm && godmodeStats && (
+              <div className="godmode-confirm">
+                <div className="godmode-warning">
+                  <span className="godmode-icon">🔥🔥🔥</span>
+                  <div className="godmode-title">GODMODE ACTIVEREN?</div>
+                  <div className="godmode-subtitle">
+                    Dit gaat <strong>{godmodeStats.emails}</strong> emails versturen via <strong>{godmodeStats.smtps}</strong> SMTP accounts
+                    in ~<strong>{godmodeStats.estimatedTime}</strong>
+                  </div>
+                  <div className="godmode-details">
+                    <div className="detail-item">⚡ 10+ parallel per SMTP</div>
+                    <div className="detail-item">🚫 Geen rate limiting</div>
+                    <div className="detail-item">💨 0 vertraging</div>
+                  </div>
+                  <div className="godmode-danger">
+                    ⚠️ WAARSCHUWING: Dit kan je SMTP reputatie beschadigen bij overmatig gebruik!
+                  </div>
+                  <div className="godmode-actions">
+                    <button onClick={() => setGodmodeConfirm(false)} className="btn btn-secondary">
+                      Annuleren
+                    </button>
+                    <button onClick={handleGodmode} className="btn btn-godmode-confirm">
+                      🔥 VUUR LOS!
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Session Prompt - Extra AI instructies voor deze batch */}
             {showSessionPrompt && (
@@ -1028,6 +1234,109 @@ Voorbeelden:
         .btn-secondary:hover {
           background: #f8fafc;
           border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-godmode {
+          background: linear-gradient(135deg, #f97316, #dc2626, #f97316);
+          background-size: 200% 200%;
+          animation: fire-gradient 2s ease infinite;
+          color: white;
+          font-weight: 700;
+          border: none;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+          box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn-godmode:hover:not(:disabled) {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
+        }
+
+        .btn-godmode-confirm {
+          background: linear-gradient(135deg, #dc2626, #991b1b);
+          color: white;
+          font-weight: 700;
+          font-size: 16px;
+          padding: 14px 28px;
+          animation: pulse-fire 1s ease-in-out infinite;
+        }
+
+        @keyframes fire-gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        @keyframes pulse-fire {
+          0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }
+          50% { transform: scale(1.02); box-shadow: 0 6px 25px rgba(220, 38, 38, 0.6); }
+        }
+
+        .godmode-confirm {
+          background: rgba(220, 38, 38, 0.05);
+          border: 2px solid #dc2626;
+          border-radius: 16px;
+          padding: 24px;
+          margin-bottom: 20px;
+          animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-5px); }
+          40%, 80% { transform: translateX(5px); }
+        }
+
+        .godmode-warning {
+          text-align: center;
+        }
+
+        .godmode-icon {
+          font-size: 48px;
+          display: block;
+          margin-bottom: 12px;
+        }
+
+        .godmode-title {
+          font-size: 24px;
+          font-weight: 800;
+          color: #dc2626;
+          margin-bottom: 8px;
+        }
+
+        .godmode-subtitle {
+          font-size: 14px;
+          color: var(--text-secondary);
+          margin-bottom: 16px;
+        }
+
+        .godmode-details {
+          display: flex;
+          justify-content: center;
+          gap: 24px;
+          margin-bottom: 16px;
+        }
+
+        .detail-item {
+          font-size: 13px;
+          color: var(--text-primary);
+          font-weight: 500;
+        }
+
+        .godmode-danger {
+          background: rgba(220, 38, 38, 0.1);
+          color: #dc2626;
+          padding: 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          margin-bottom: 20px;
+        }
+
+        .godmode-actions {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
         }
 
         .file-btn { position: relative; }
