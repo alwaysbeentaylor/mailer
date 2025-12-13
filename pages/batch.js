@@ -34,6 +34,7 @@ export default function BatchPage() {
   const [sendMode, setSendMode] = useState('normal'); // normal, turbo, godmode
   const [godmodeStats, setGodmodeStats] = useState(null);
   const [godmodeConfirm, setGodmodeConfirm] = useState(false);
+  const [godmodeLogs, setGodmodeLogs] = useState([]); // Live activity logs
 
   // Load SMTP accounts on mount
   useEffect(() => {
@@ -398,6 +399,17 @@ export default function BatchPage() {
     setResults(null);
     setGodmodeConfirm(false);
     setProgress({ current: 0, total: validLeads.length });
+    setGodmodeLogs([]); // Clear previous logs
+
+    // Log helper
+    const addLog = (type, message, details = null) => {
+      const timestamp = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setGodmodeLogs(prev => [...prev, { timestamp, type, message, details }]);
+    };
+
+    addLog('system', '🔥🔥🔥 GODMODE GEACTIVEERD');
+    addLog('info', `📧 ${validLeads.length} emails te versturen`);
+    addLog('info', `📡 ${activeSmtps.length} SMTP accounts actief`);
 
     // Initialize all lead statuses
     const initialStatuses = {};
@@ -405,8 +417,6 @@ export default function BatchPage() {
       initialStatuses[lead.id] = 'waiting';
     });
     setLeadStatuses(initialStatuses);
-
-    console.log('🔥🔥🔥 GODMODE ACTIVATED 🔥🔥🔥');
 
     try {
       // Distribute emails across SMTPs
@@ -430,8 +440,10 @@ export default function BatchPage() {
       };
 
       // Process all batches in parallel
-      const batchPromises = batches.filter(b => b.emails.length > 0).map(async (batch) => {
+      const batchPromises = batches.filter(b => b.emails.length > 0).map(async (batch, batchIdx) => {
         const chunkSize = 5; // 5 emails at once per SMTP for better progress updates
+
+        addLog('smtp', `🔌 Verbinden met ${batch.smtp.user}...`, batch.smtp.host);
 
         for (let i = 0; i < batch.emails.length; i += chunkSize) {
           const chunk = batch.emails.slice(i, i + chunkSize);
@@ -440,6 +452,7 @@ export default function BatchPage() {
             chunk.map(async (lead) => {
               // Mark as processing
               setLeadStatuses(prev => ({ ...prev, [lead.id]: 'processing' }));
+              addLog('send', `📤 Versturen naar ${lead.toEmail}...`, batch.smtp.user);
 
               try {
                 const res = await fetch('/api/send-email', {
@@ -460,13 +473,16 @@ export default function BatchPage() {
 
                 if (data.success) {
                   setLeadStatuses(prev => ({ ...prev, [lead.id]: 'sent' }));
+                  addLog('success', `✅ Verstuurd: ${lead.toEmail}`, lead.businessName);
                   return { success: true, lead };
                 } else {
                   setLeadStatuses(prev => ({ ...prev, [lead.id]: 'failed' }));
+                  addLog('error', `❌ Mislukt: ${lead.toEmail}`, data.error?.message || 'Onbekende fout');
                   return { success: false, lead, error: data.error?.message || 'Failed' };
                 }
               } catch (err) {
                 setLeadStatuses(prev => ({ ...prev, [lead.id]: 'failed' }));
+                addLog('error', `❌ Error: ${lead.toEmail}`, err.message);
                 return { success: false, lead, error: err.message };
               }
             })
@@ -503,7 +519,11 @@ export default function BatchPage() {
 
       await Promise.all(batchPromises);
 
-      console.log(`🏁 GODMODE COMPLETE: ${counter.sent} sent, ${counter.failed} failed`);
+      addLog('system', `🏁 GODMODE VOLTOOID`);
+      addLog('success', `✅ Verstuurd: ${counter.sent}`);
+      if (counter.failed > 0) {
+        addLog('error', `❌ Mislukt: ${counter.failed}`);
+      }
 
       setResults({
         sent: counter.sent,
@@ -605,19 +625,19 @@ export default function BatchPage() {
               </button>
 
               <button
-                onClick={handleGodmode}
-                disabled={sending || leads.length === 0 || smtpAccounts.filter(a => a.active !== false).length === 0}
-                className="btn btn-godmode"
-              >
-                {sending && sendMode === 'godmode' ? `🔥 ${progress.current}/${progress.total}` : '🔥 GODMODE'}
-              </button>
-
-              <button
                 onClick={() => setShowCampaignModal(true)}
                 disabled={sending || leads.length === 0}
                 className="btn btn-primary"
               >
                 🚀 Campagne
+              </button>
+
+              <button
+                onClick={handleGodmode}
+                disabled={sending || leads.length === 0 || smtpAccounts.filter(a => a.active !== false).length === 0}
+                className="btn btn-godmode"
+              >
+                {sending && sendMode === 'godmode' ? `🔥 ${progress.current}/${progress.total}` : '🔥 GODMODE'}
               </button>
             </div>
 
@@ -764,6 +784,33 @@ Voorbeelden:
                 </div>
                 <div className="progress-percentage">
                   {Math.round((progress.current / progress.total) * 100)}% voltooid
+                </div>
+              </div>
+            )}
+
+            {/* Live Log Panel - GODMODE */}
+            {godmodeLogs.length > 0 && (
+              <div className="log-panel">
+                <div className="log-header">
+                  <span className="log-title">🔥 GODMODE Live Log</span>
+                  <span className="log-count">{godmodeLogs.length} events</span>
+                  {!sending && (
+                    <button
+                      className="log-clear"
+                      onClick={() => setGodmodeLogs([])}
+                    >
+                      Wissen
+                    </button>
+                  )}
+                </div>
+                <div className="log-body">
+                  {godmodeLogs.map((log, i) => (
+                    <div key={i} className={`log-entry log-${log.type}`}>
+                      <span className="log-time">{log.timestamp}</span>
+                      <span className="log-message">{log.message}</span>
+                      {log.details && <span className="log-details">{log.details}</span>}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1346,6 +1393,88 @@ Voorbeelden:
           justify-content: center;
           gap: 12px;
         }
+
+        /* Live Log Panel */
+        .log-panel {
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 12px;
+          margin-bottom: 20px;
+          overflow: hidden;
+          font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          background: #161b22;
+          border-bottom: 1px solid #30363d;
+        }
+
+        .log-title {
+          font-weight: 600;
+          color: #f97316;
+        }
+
+        .log-count {
+          font-size: 12px;
+          color: #8b949e;
+          margin-left: auto;
+        }
+
+        .log-clear {
+          padding: 4px 12px;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid #30363d;
+          border-radius: 6px;
+          color: #8b949e;
+          font-size: 12px;
+          cursor: pointer;
+        }
+
+        .log-clear:hover {
+          background: rgba(255,255,255,0.15);
+          color: #fff;
+        }
+
+        .log-body {
+          max-height: 300px;
+          overflow-y: auto;
+          padding: 8px 0;
+        }
+
+        .log-entry {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 4px 16px;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .log-time {
+          color: #6e7681;
+          min-width: 65px;
+        }
+
+        .log-message {
+          color: #c9d1d9;
+          flex: 1;
+        }
+
+        .log-details {
+          color: #8b949e;
+          font-size: 11px;
+        }
+
+        .log-system .log-message { color: #f97316; font-weight: 600; }
+        .log-smtp .log-message { color: #58a6ff; }
+        .log-send .log-message { color: #a5d6ff; }
+        .log-success .log-message { color: #3fb950; }
+        .log-error .log-message { color: #f85149; }
+        .log-info .log-message { color: #8b949e; }
 
         .file-btn { position: relative; }
 
