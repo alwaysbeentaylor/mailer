@@ -5,10 +5,17 @@
 let memoryStore = {};
 
 async function getKV() {
+    // Check if KV environment variables are configured
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+        return null;
+    }
+
     try {
         const { kv } = await import('@vercel/kv');
+        await kv.ping();
         return kv;
     } catch (e) {
+        console.error('Get SMTP Config: KV connection failed:', e.message);
         return null;
     }
 }

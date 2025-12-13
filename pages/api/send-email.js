@@ -8,6 +8,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { loadNiches } from '../../utils/knowledge';
 import { analyzeWebsite } from '../../utils/scraper';
 import { saveEmail } from '../../utils/database';
+import {
+  AppError,
+  ERROR_CODES,
+  formatErrorResponse,
+  logError,
+  wrapError
+} from '../../utils/error-handler';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -555,10 +562,14 @@ export default async function handler(req, res) {
   }
 
   if (!toEmail || !businessName || !websiteUrl) {
-    return res.status(400).json({
-      error: "Verplichte velden ontbreken",
-      details: "toEmail, businessName en websiteUrl zijn verplicht"
+    const error = new AppError(ERROR_CODES.VALIDATION_MISSING_FIELDS, null, {
+      missing: {
+        toEmail: !toEmail,
+        businessName: !businessName,
+        websiteUrl: !websiteUrl
+      }
     });
+    return res.status(400).json(error.toJSON());
   }
 
   try {
@@ -1159,11 +1170,25 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("❌ Error:", err);
+    // Log the error with context
+    logError(err, 'send-email');
 
-    return res.status(500).json({
-      error: "Er ging iets mis",
-      details: err.message
+    // Wrap and format the error for user-friendly response
+    const formattedError = formatErrorResponse(err, {
+      toEmail,
+      businessName,
+      websiteUrl,
+      smtpAccountId
     });
+
+    // Determine status code based on error type
+    let statusCode = 500;
+    if (formattedError.error.code?.startsWith('VAL_')) {
+      statusCode = 400; // Validation errors
+    } else if (formattedError.error.code?.startsWith('SMTP_005')) {
+      statusCode = 400; // Not configured
+    }
+
+    return res.status(statusCode).json(formattedError);
   }
 }

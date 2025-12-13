@@ -4,13 +4,22 @@
 // Simple in-memory fallback for development (will be replaced by KV in production)
 let memoryStore = {};
 
-// Helper to get KV client (if available)
+// Helper to get KV client (if available and configured)
 async function getKV() {
+    // Check if KV environment variables are configured
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+        console.log('SMTP Accounts: KV not configured, using memory store');
+        return null;
+    }
+
     try {
         // Try to import Vercel KV
         const { kv } = await import('@vercel/kv');
+        // Test if KV is actually working by doing a simple ping
+        await kv.ping();
         return kv;
     } catch (e) {
+        console.error('SMTP Accounts: KV connection failed, using memory store:', e.message);
         return null;
     }
 }
