@@ -58,14 +58,12 @@ export default async function handler(req, res) {
     // POST - Nieuw account toevoegen of bestaand updaten
     if (req.method === 'POST') {
         try {
-            const { id, name, host, port, user, pass, fromName, active = true } = req.body;
-
-            if (!host || !user || !pass) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'host, user en pass zijn verplicht'
-                });
-            }
+            const {
+                id, name, host, port, user, pass,
+                fromName, fromEmail,
+                hourlyLimit, dailyLimit,
+                warmupEnabled, active = true
+            } = req.body;
 
             let accounts = [];
             if (kv) {
@@ -74,26 +72,58 @@ export default async function handler(req, res) {
                 accounts = memoryStore[KV_KEY] || [];
             }
 
-            const accountData = {
-                id: id || `smtp_${Date.now()}`,
-                name: name || host,
-                host,
-                port: port || '587',
-                user,
-                pass, // Encrypted storage zou beter zijn in productie
-                fromName: fromName || '',
-                active,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
             // Check of we updaten of toevoegen
             const existingIndex = accounts.findIndex(a => a.id === id);
-            if (existingIndex >= 0) {
-                // Update - behoud createdAt
-                accountData.createdAt = accounts[existingIndex].createdAt;
+            const isUpdate = existingIndex >= 0;
+
+            // Bij nieuw account: host, user, pass verplicht
+            // Bij update: alleen geleverde velden worden gewijzigd
+            if (!isUpdate && (!host || !user || !pass)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'host, user en pass zijn verplicht voor nieuwe accounts'
+                });
+            }
+
+            let accountData;
+
+            if (isUpdate) {
+                // Update: merge met bestaande data
+                const existing = accounts[existingIndex];
+                accountData = {
+                    ...existing,
+                    name: name !== undefined ? name : existing.name,
+                    host: host || existing.host,
+                    port: port || existing.port,
+                    user: user || existing.user,
+                    pass: pass || existing.pass, // Behoud bestaand wachtwoord als niet meegegeven
+                    fromName: fromName !== undefined ? fromName : (existing.fromName || ''),
+                    fromEmail: fromEmail !== undefined ? fromEmail : (existing.fromEmail || ''),
+                    hourlyLimit: hourlyLimit !== undefined ? hourlyLimit : (existing.hourlyLimit || 10),
+                    dailyLimit: dailyLimit !== undefined ? dailyLimit : (existing.dailyLimit || 50),
+                    warmupEnabled: warmupEnabled !== undefined ? warmupEnabled : (existing.warmupEnabled || false),
+                    active: active !== undefined ? active : existing.active,
+                    updatedAt: new Date().toISOString()
+                };
                 accounts[existingIndex] = accountData;
             } else {
+                // Nieuw account
+                accountData = {
+                    id: `smtp_${Date.now()}`,
+                    name: name || host,
+                    host,
+                    port: port || '587',
+                    user,
+                    pass,
+                    fromName: fromName || '',
+                    fromEmail: fromEmail || '',
+                    hourlyLimit: hourlyLimit || 10,
+                    dailyLimit: dailyLimit || 50,
+                    warmupEnabled: warmupEnabled || false,
+                    active,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
                 accounts.push(accountData);
             }
 
@@ -107,9 +137,10 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 account: { ...accountData, pass: '••••••••' },
-                message: existingIndex >= 0 ? 'Account bijgewerkt' : 'Account toegevoegd'
+                message: isUpdate ? 'Account bijgewerkt' : 'Account toegevoegd'
             });
         } catch (error) {
+            console.error('SMTP POST error:', error);
             return res.status(500).json({ success: false, error: error.message });
         }
     }

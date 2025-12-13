@@ -139,18 +139,33 @@ export default function Settings() {
   const handleSave = async (id, formData) => {
     setSaving(true);
     try {
+      // If editing and password is empty, keep the old password
+      let payload = { id, ...formData };
+
+      // If editing existing account and no new password provided
+      if (id && (!formData.pass || formData.pass === '')) {
+        const existingAccount = accounts.find(a => a.id === id);
+        if (existingAccount) {
+          // Don't include pass in update - API should keep existing
+          delete payload.pass;
+        }
+      }
+
       const res = await fetch('/api/smtp-accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...formData })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
         await loadAccounts();
+        setShowSettings(false);
+        setEditingAccount(null);
       } else {
-        alert('Fout: ' + data.error);
+        alert('Fout: ' + (data.error || 'Onbekende fout'));
       }
     } catch (error) {
+      console.error('Save error:', error);
       alert('Fout bij opslaan: ' + error.message);
     }
     setSaving(false);
