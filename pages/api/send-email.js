@@ -515,8 +515,31 @@ export default async function handler(req, res) {
     customSubject = "", // Custom subject line (leeg = auto)
     customPreheader = "", // Custom pre-header (leeg = auto)
     sessionPrompt = "", // Tijdelijke extra AI instructies (voor batch sessie)
-    smtpConfig = null // Dynamische SMTP configuratie (voor campaign systeem)
+    smtpConfig: providedSmtpConfig = null, // Directe SMTP config (voor campaign systeem)
+    smtpAccountId = null // SMTP account ID om credentials op te halen
   } = req.body;
+
+  // Als er een smtpAccountId is meegegeven, haal de config op
+  let smtpConfig = providedSmtpConfig;
+  if (!smtpConfig && smtpAccountId) {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const smtpRes = await fetch(`${baseUrl}/api/get-smtp-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: smtpAccountId })
+      });
+      const smtpData = await smtpRes.json();
+      if (smtpData.success) {
+        smtpConfig = smtpData.smtpConfig;
+        console.log(`📧 SMTP account geladen: ${smtpConfig.user}`);
+      } else {
+        console.warn(`⚠️ SMTP account niet gevonden: ${smtpAccountId}`);
+      }
+    } catch (err) {
+      console.error('Error loading SMTP config:', err);
+    }
+  }
 
   // Handle "random" tone - kies willekeurige stijl
   const availableTones = ["professional", "casual", "urgent", "friendly"];

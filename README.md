@@ -178,8 +178,26 @@ skye-mail-agent/
    **Voor Analytics & Reply Scanning (Gmail API):**
    - `GMAIL_CREDENTIALS`: De *inhoud* van je `gmail_credentials.json` bestand (als platte tekst).
    - `GMAIL_TOKENS`: De *inhoud* van je `tokens.json` bestand (als platte tekst).
+
+5. **QStash Setup (Voor Background Jobs)**:
+   Om emails te kunnen inplannen die verstuurd worden zelfs nadat je browser sluit:
    
-5. **Deploy**: Klik op Deploy!
+   - Ga naar [console.upstash.com](https://console.upstash.com)
+   - Maak een gratis account aan
+   - Maak een nieuwe **QStash** instance
+   - Kopieer de keys en voeg toe aan Vercel:
+     - `QSTASH_TOKEN`: Je QStash API token
+     - `QSTASH_CURRENT_SIGNING_KEY`: Voor webhook verificatie
+     - `QSTASH_NEXT_SIGNING_KEY`: Rotatie key
+   
+6. **Deploy**: Klik op Deploy!
+
+### QStash Features
+Met QStash kun je:
+- 📬 **Batch emails inplannen** - Sluit browser, emails worden toch verstuurd
+- 🔥 **Warmup emails schedulen** - Bouw email reputatie op automatisch
+- ⏰ **Delayed sending** - Plan emails in voor later (bijv. volgende ochtend 9:00)
+- 🔄 **Automatic retries** - Als een email faalt, probeert QStash opnieuw
 
 ## 📝 License
 

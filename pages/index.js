@@ -21,6 +21,36 @@ export default function Home() {
   const [stats, setStats] = useState({ sent: 0, pending: 0 });
   const [previewMode, setPreviewMode] = useState(false);
 
+  // SMTP Account selection
+  const [smtpAccounts, setSmtpAccounts] = useState([]);
+  const [selectedSmtpId, setSelectedSmtpId] = useState('');
+  const [loadingSmtp, setLoadingSmtp] = useState(true);
+
+  // Load SMTP accounts from API
+  useEffect(() => {
+    async function loadSmtpAccounts() {
+      setLoadingSmtp(true);
+      try {
+        const res = await fetch('/api/smtp-accounts');
+        const data = await res.json();
+        if (data.success && data.accounts.length > 0) {
+          setSmtpAccounts(data.accounts);
+          // Auto-select first active account
+          const activeAccount = data.accounts.find(a => a.active);
+          if (activeAccount) {
+            setSelectedSmtpId(activeAccount.id);
+          } else {
+            setSelectedSmtpId(data.accounts[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading SMTP accounts:', error);
+      }
+      setLoadingSmtp(false);
+    }
+    loadSmtpAccounts();
+  }, []);
+
   // Load stats from localStorage
   useEffect(() => {
     const savedStats = localStorage.getItem("skyeMailStats");
@@ -48,10 +78,18 @@ export default function Home() {
     // Actually standard behavior is fine, but let's keep it null for loading state logic if needed.
     setResult(null);
 
+    // Check SMTP account when sending (not for preview)
+    if (!isPreview && !selectedSmtpId && smtpAccounts.length === 0) {
+      setError('Geen SMTP account geconfigureerd. Ga naar Settings om een account toe te voegen.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         ...formData,
-        dryRun: isPreview
+        dryRun: isPreview,
+        smtpAccountId: selectedSmtpId || null // Send SMTP account ID
       };
 
       // If we have pre-generated data (from preview), send it along
@@ -260,6 +298,36 @@ export default function Home() {
                         placeholder="Jan Janssen"
                         className="input"
                       />
+                    </div>
+
+                    {/* SMTP Account Selector */}
+                    <div className="form-group full-width">
+                      <label className="label">
+                        Verstuur via
+                        <span className="required">*</span>
+                      </label>
+                      {loadingSmtp ? (
+                        <div className="smtp-loading">⏳ SMTP accounts laden...</div>
+                      ) : smtpAccounts.length === 0 ? (
+                        <div className="smtp-warning">
+                          <span>⚠️ Geen SMTP accounts geconfigureerd</span>
+                          <Link href="/settings" className="smtp-setup-link">
+                            → Configureer in Settings
+                          </Link>
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedSmtpId}
+                          onChange={(e) => setSelectedSmtpId(e.target.value)}
+                          className="input smtp-select"
+                        >
+                          {smtpAccounts.map((acc) => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.name || acc.user} ({acc.host})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -868,6 +936,47 @@ export default function Home() {
           color: var(--text-muted);
         }
 
+        /* SMTP Account Selector */
+        .smtp-select {
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 16px center;
+          padding-right: 40px;
+        }
+        .smtp-select option {
+          background: #1a1a2e;
+          color: #fff;
+          padding: 12px;
+        }
+        .smtp-loading {
+          padding: 14px 16px;
+          background: rgba(0, 0, 0, 0.3);
+          border: 1px dashed var(--glass-border);
+          border-radius: 12px;
+          color: var(--text-muted);
+          font-size: 14px;
+        }
+        .smtp-warning {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 14px 16px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 12px;
+          color: #f87171;
+          font-size: 14px;
+        }
+        .smtp-setup-link {
+          color: var(--neon-blue);
+          font-weight: 600;
+          text-decoration: none;
+        }
+        .smtp-setup-link:hover {
+          text-decoration: underline;
+        }
         .tone-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
