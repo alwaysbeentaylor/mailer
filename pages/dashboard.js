@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Navigation from '../components/Navigation';
 
 export default function DashboardPage() {
     const [stats, setStats] = useState(null);
@@ -96,16 +97,13 @@ export default function DashboardPage() {
             </Head>
 
             <div className="app">
-                <header className="header">
-                    <Link href="/" className="back-link">← Terug</Link>
-                    <div className="logo">
-                        <span className="logo-icon">📊</span>
-                        <span className="logo-text">Dashboard</span>
-                    </div>
-                    <button onClick={loadData} className="btn btn-secondary refresh-btn">
+                <Navigation />
+                <div className="page-header">
+                    <h1>📊 Dashboard</h1>
+                    <button onClick={loadData} className="btn btn-secondary">
                         🔄 Ververs
                     </button>
-                </header>
+                </div>
 
                 <main className="main">
                     <div className="container">
@@ -285,19 +283,20 @@ export default function DashboardPage() {
             font-family: 'Inter', sans-serif;
           }
 
-          .header {
+          .page-header {
             display: flex;
             align-items: center;
-            gap: 20px;
+            justify-content: space-between;
             padding: 16px 24px;
             background: white;
             border-bottom: 1px solid #e2e8f0;
           }
 
-          .back-link {
-            color: #64748b;
-            text-decoration: none;
-            font-size: 14px;
+          .page-header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #1e293b;
           }
 
           .logo {

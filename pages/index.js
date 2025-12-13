@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
+import Navigation from "../components/Navigation";
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -184,31 +185,7 @@ export default function Home() {
             </div>
             <span className="logo-badge">MAIL AGENT v2.0</span>
           </div>
-          <div className="header-right">
-            <Link href="/campaigns" className="nav-link">
-              🚀 Campagnes
-            </Link>
-            <Link href="/analytics" className="nav-link">
-              📊 Analytics
-            </Link>
-            <Link href="/batch" className="nav-link">
-              📦 Batch
-            </Link>
-            <Link href="/enrich" className="nav-link">
-              🕵️ Enricher
-            </Link>
-            <Link href="/warmup" className="nav-link">
-              🔥 Warm-up
-            </Link>
-            <Link href="/settings" className="nav-link">
-              ⚙️ Settings
-            </Link>
-            <div className="stats-pill glass-panel">
-              <span className="stat-value">{stats.sent}</span>
-              <span className="stat-label">SENT</span>
-              <span className="status-dot"></span>
-            </div>
-          </div>
+          <Navigation dark={true} />
         </header>
 
         {/* Main Content */}

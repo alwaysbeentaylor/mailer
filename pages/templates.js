@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Navigation from '../components/Navigation';
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState([]);
@@ -160,16 +161,13 @@ export default function TemplatesPage() {
             </Head>
 
             <div className="app">
-                <header className="header">
-                    <Link href="/" className="back-link">← Terug</Link>
-                    <div className="logo">
-                        <span className="logo-icon">🎨</span>
-                        <span className="logo-text">Email Templates</span>
-                    </div>
+                <Navigation />
+                <div className="page-header">
+                    <h1>🎨 Email Templates</h1>
                     <button onClick={createNewTemplate} className="btn btn-primary">
                         ➕ Nieuwe Template
                     </button>
-                </header>
+                </div>
 
                 <main className="main">
                     <div className="container">
@@ -326,30 +324,21 @@ export default function TemplatesPage() {
             font-family: 'Inter', sans-serif;
           }
 
-          .header {
+          .page-header {
             display: flex;
             align-items: center;
-            gap: 20px;
+            justify-content: space-between;
             padding: 16px 24px;
             background: white;
             border-bottom: 1px solid #e2e8f0;
           }
 
-          .back-link {
-            color: #64748b;
-            text-decoration: none;
-            font-size: 14px;
+          .page-header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #1e293b;
           }
-
-          .logo {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex: 1;
-          }
-
-          .logo-icon { font-size: 24px; }
-          .logo-text { font-weight: 700; font-size: 18px; color: #1e293b; }
 
           .main { padding: 24px; }
           .container { max-width: 1600px; margin: 0 auto; }
