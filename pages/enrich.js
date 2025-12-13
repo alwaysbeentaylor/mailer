@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import Navigation from "../components/Navigation";
 
 const ENRICHER_RESULTS_KEY = 'skyeEnricherResults';
 
@@ -344,13 +345,13 @@ export default function EnrichPage() {
             <div className="app">
                 <div className="bg-gradient"></div>
 
-                <header className="header">
-                    <Link href="/" className="back-link">← Terug Home</Link>
+                <Navigation />
+                <div className="page-header">
                     <div className="logo">
                         <span className="logo-icon">🕵️</span>
                         <span className="logo-text">Lead Verrijker</span>
                     </div>
-                </header>
+                </div>
 
                 <main className="main">
                     <div className="container">
@@ -626,8 +627,8 @@ export default function EnrichPage() {
           color: var(--text-primary);
         }
 
-        .header {
-          padding: 20px;
+        .page-header {
+          padding: 20px 24px;
           background: white;
           border-bottom: 1px solid #e2e8f0;
           display: flex;
@@ -636,7 +637,6 @@ export default function EnrichPage() {
         }
 
         .logo { font-size: 1.25rem; font-weight: 700; display: flex; gap: 8px; }
-        .back-link { text-decoration: none; color: #64748b; font-weight: 500; }
 
         .container {
           max-width: 800px;

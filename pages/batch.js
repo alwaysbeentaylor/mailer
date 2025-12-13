@@ -2,6 +2,9 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import Navigation from '../components/Navigation';
+import LeadEnricher from "../components/LeadEnricher";
+import godmode from '../utils/godmode';
 import { createCampaign, getActiveSmtpAccounts, getSmtpAccounts } from "../utils/campaignStore";
 import { getWarmupSummary } from "../utils/warmupStore";
 
@@ -558,11 +561,9 @@ export default function BatchPage() {
         <div className="bg-gradient"></div>
         <div className="bg-grid"></div>
 
-        {/* Header */}
-        <header className="header">
-          <Link href="/" className="back-link">
-            ← Terug
-          </Link>
+        <Navigation />
+        {/* Page Header */}
+        <div className="page-header">
           <div className="logo">
             <span className="logo-icon">📦</span>
             <span className="logo-text">Batch Modus</span>
@@ -570,7 +571,7 @@ export default function BatchPage() {
           <div className="lead-count">
             {leads.length} leads
           </div>
-        </header>
+        </div>
 
         <main className="main">
           <div className="container">

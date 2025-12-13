@@ -1,277 +1,255 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Navigation from '../components/Navigation';
 import WarmupStatus from '../components/WarmupStatus';
 import WarmupWizard from '../components/WarmupWizard';
 import { getSmtpAccounts } from '../utils/campaignStore';
 import {
-    getWarmupSummary,
-    initializeWarmup,
-    pauseWarmup,
-    resumeWarmup,
-    disableWarmup,
-    updateWarmupSettings
+  getWarmupSummary,
+  initializeWarmup,
+  pauseWarmup,
+  resumeWarmup,
+  disableWarmup,
+  updateWarmupSettings
 } from '../utils/warmupStore';
 
 export default function WarmupPage() {
-    const [accounts, setAccounts] = useState([]);
-    const [warmupData, setWarmupData] = useState({});
-    const [showWizard, setShowWizard] = useState(null); // accountId or null
-    const [editingLimit, setEditingLimit] = useState(null); // accountId or null
-    const [customLimitValue, setCustomLimitValue] = useState('');
+  const [accounts, setAccounts] = useState([]);
+  const [warmupData, setWarmupData] = useState({});
+  const [showWizard, setShowWizard] = useState(null); // accountId or null
+  const [editingLimit, setEditingLimit] = useState(null); // accountId or null
+  const [customLimitValue, setCustomLimitValue] = useState('');
 
-    useEffect(() => {
-        loadData();
-        // Refresh every minute to update counters
-        const interval = setInterval(loadData, 60000);
-        return () => clearInterval(interval);
-    }, []);
+  useEffect(() => {
+    loadData();
+    // Refresh every minute to update counters
+    const interval = setInterval(loadData, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
-    const loadData = () => {
-        const smtpAccounts = getSmtpAccounts();
-        setAccounts(smtpAccounts);
+  const loadData = () => {
+    const smtpAccounts = getSmtpAccounts();
+    setAccounts(smtpAccounts);
 
-        const data = {};
-        smtpAccounts.forEach(account => {
-            data[account.id] = getWarmupSummary(account.id);
-        });
-        setWarmupData(data);
-    };
+    const data = {};
+    smtpAccounts.forEach(account => {
+      data[account.id] = getWarmupSummary(account.id);
+    });
+    setWarmupData(data);
+  };
 
-    const handleSetupComplete = (accountId, settings) => {
-        initializeWarmup(accountId, settings);
-        setShowWizard(null);
-        loadData();
-    };
+  const handleSetupComplete = (accountId, settings) => {
+    initializeWarmup(accountId, settings);
+    setShowWizard(null);
+    loadData();
+  };
 
-    const handlePause = (accountId) => {
-        pauseWarmup(accountId);
-        loadData();
-    };
+  const handlePause = (accountId) => {
+    pauseWarmup(accountId);
+    loadData();
+  };
 
-    const handleResume = (accountId) => {
-        resumeWarmup(accountId);
-        loadData();
-    };
+  const handleResume = (accountId) => {
+    resumeWarmup(accountId);
+    loadData();
+  };
 
-    const handleDisable = (accountId) => {
-        if (confirm('Weet je zeker dat je warm-up wilt uitschakelen voor dit account?')) {
-            disableWarmup(accountId);
-            loadData();
-        }
-    };
+  const handleDisable = (accountId) => {
+    if (confirm('Weet je zeker dat je warm-up wilt uitschakelen voor dit account?')) {
+      disableWarmup(accountId);
+      loadData();
+    }
+  };
 
-    const handleOverrideLimit = (accountId) => {
-        const limit = parseInt(customLimitValue);
-        if (limit > 0) {
-            updateWarmupSettings(accountId, { customDailyLimit: limit });
-            setEditingLimit(null);
-            setCustomLimitValue('');
-            loadData();
-        }
-    };
+  const handleOverrideLimit = (accountId) => {
+    const limit = parseInt(customLimitValue);
+    if (limit > 0) {
+      updateWarmupSettings(accountId, { customDailyLimit: limit });
+      setEditingLimit(null);
+      setCustomLimitValue('');
+      loadData();
+    }
+  };
 
-    const handleClearOverride = (accountId) => {
-        updateWarmupSettings(accountId, { customDailyLimit: null });
-        loadData();
-    };
+  const handleClearOverride = (accountId) => {
+    updateWarmupSettings(accountId, { customDailyLimit: null });
+    loadData();
+  };
 
-    return (
-        <>
-            <Head>
-                <title>🔥 Warm-up | SKYE Mail Agent</title>
-            </Head>
+  return (
+    <>
+      <Head>
+        <title>🔥 Warm-up | SKYE Mail Agent</title>
+      </Head>
 
-            <div className="container">
-                <nav className="nav-bar">
-                    <Link href="/" className="nav-link">📧 Verstuur</Link>
-                    <Link href="/batch" className="nav-link">📦 Batch</Link>
-                    <Link href="/campaigns" className="nav-link">🚀 Campagnes</Link>
-                    <Link href="/enrich" className="nav-link">🔍 Enricher</Link>
-                    <Link href="/analytics" className="nav-link">📊 Analytics</Link>
-                    <Link href="/warmup" className="nav-link active">🔥 Warm-up</Link>
-                    <Link href="/settings" className="nav-link">⚙️ Settings</Link>
-                </nav>
+      <div className="container">
+        <Navigation dark={true} />
 
-                <header className="page-header">
-                    <h1>🔥 Email Warm-up</h1>
-                    <p>Beheer de opwarm-status van je SMTP accounts</p>
-                </header>
+        <header className="page-header">
+          <h1>🔥 Email Warm-up</h1>
+          <p>Beheer de opwarm-status van je SMTP accounts</p>
+        </header>
 
-                {accounts.length === 0 ? (
-                    <div className="empty-state">
-                        <span className="empty-icon">📭</span>
-                        <h2>Geen SMTP accounts</h2>
-                        <p>Voeg eerst SMTP accounts toe om warm-up te configureren</p>
-                        <Link href="/settings" className="btn btn-primary">
-                            ⚙️ Ga naar Settings
-                        </Link>
+        {accounts.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon">📭</span>
+            <h2>Geen SMTP accounts</h2>
+            <p>Voeg eerst SMTP accounts toe om warm-up te configureren</p>
+            <Link href="/settings" className="btn btn-primary">
+              ⚙️ Ga naar Settings
+            </Link>
+          </div>
+        ) : (
+          <div className="accounts-grid">
+            {accounts.map(account => {
+              const summary = warmupData[account.id] || {};
+              const isEditing = editingLimit === account.id;
+
+              return (
+                <div key={account.id} className="account-card">
+                  <div className="account-header">
+                    <div className="account-info">
+                      <h3>{account.name || account.user}</h3>
+                      <span className="account-email">{account.user}</span>
                     </div>
-                ) : (
-                    <div className="accounts-grid">
-                        {accounts.map(account => {
-                            const summary = warmupData[account.id] || {};
-                            const isEditing = editingLimit === account.id;
+                    <span className={`account-badge ${account.active ? 'active' : 'inactive'}`}>
+                      {account.active ? '● Actief' : '○ Inactief'}
+                    </span>
+                  </div>
 
-                            return (
-                                <div key={account.id} className="account-card">
-                                    <div className="account-header">
-                                        <div className="account-info">
-                                            <h3>{account.name || account.user}</h3>
-                                            <span className="account-email">{account.user}</span>
-                                        </div>
-                                        <span className={`account-badge ${account.active ? 'active' : 'inactive'}`}>
-                                            {account.active ? '● Actief' : '○ Inactief'}
-                                        </span>
-                                    </div>
+                  {showWizard === account.id ? (
+                    <WarmupWizard
+                      onComplete={(settings) => handleSetupComplete(account.id, settings)}
+                      onCancel={() => setShowWizard(null)}
+                    />
+                  ) : (
+                    <>
+                      <WarmupStatus summary={summary} />
 
-                                    {showWizard === account.id ? (
-                                        <WarmupWizard
-                                            onComplete={(settings) => handleSetupComplete(account.id, settings)}
-                                            onCancel={() => setShowWizard(null)}
-                                        />
-                                    ) : (
-                                        <>
-                                            <WarmupStatus summary={summary} />
-
-                                            {/* Custom Limit Override */}
-                                            {summary.enabled && !summary.isComplete && (
-                                                <div className="override-section">
-                                                    {isEditing ? (
-                                                        <div className="override-input">
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                max="500"
-                                                                value={customLimitValue}
-                                                                onChange={(e) => setCustomLimitValue(e.target.value)}
-                                                                placeholder="Nieuw limiet"
-                                                            />
-                                                            <button onClick={() => handleOverrideLimit(account.id)} className="btn-sm btn-primary">
-                                                                ✓
-                                                            </button>
-                                                            <button onClick={() => setEditingLimit(null)} className="btn-sm btn-secondary">
-                                                                ✕
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingLimit(account.id);
-                                                                setCustomLimitValue(summary.dailyLimit?.toString() || '');
-                                                            }}
-                                                            className="btn-text"
-                                                        >
-                                                            ✏️ Override dagelijks limiet
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {/* Controls */}
-                                            <div className="account-controls">
-                                                {!summary.enabled ? (
-                                                    <button
-                                                        onClick={() => setShowWizard(account.id)}
-                                                        className="btn btn-primary"
-                                                    >
-                                                        🔥 Warm-up Starten
-                                                    </button>
-                                                ) : summary.paused ? (
-                                                    <button onClick={() => handleResume(account.id)} className="btn btn-success">
-                                                        ▶️ Hervatten
-                                                    </button>
-                                                ) : !summary.isComplete ? (
-                                                    <button onClick={() => handlePause(account.id)} className="btn btn-warning">
-                                                        ⏸️ Pauzeren
-                                                    </button>
-                                                ) : null}
-
-                                                {summary.enabled && (
-                                                    <button onClick={() => handleDisable(account.id)} className="btn btn-danger-text">
-                                                        Warm-up Uitschakelen
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {/* Stats */}
-                                            {summary.enabled && (
-                                                <div className="account-stats">
-                                                    <div className="stat">
-                                                        <span className="stat-value">{summary.totalSent || 0}</span>
-                                                        <span className="stat-label">Totaal verzonden</span>
-                                                    </div>
-                                                    <div className="stat">
-                                                        <span className="stat-value">{summary.daysRemaining || 0}</span>
-                                                        <span className="stat-label">Dagen resterend</span>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {/* Info Section */}
-                <div className="info-section">
-                    <h3>💡 Over Email Warm-up</h3>
-                    <p>
-                        Email warm-up is het proces van geleidelijk het volume van verzonden emails verhogen
-                        vanaf een nieuwe email account. Dit helpt om een goede reputatie op te bouwen bij
-                        email providers zoals Gmail en Outlook, zodat je emails niet in spam belanden.
-                    </p>
-                    <div className="info-grid">
-                        <div className="info-item">
-                            <span className="info-icon">🐢</span>
-                            <strong>Voorzichtig</strong>
-                            <span>8 weken, start met 3/dag</span>
+                      {/* Custom Limit Override */}
+                      {summary.enabled && !summary.isComplete && (
+                        <div className="override-section">
+                          {isEditing ? (
+                            <div className="override-input">
+                              <input
+                                type="number"
+                                min="1"
+                                max="500"
+                                value={customLimitValue}
+                                onChange={(e) => setCustomLimitValue(e.target.value)}
+                                placeholder="Nieuw limiet"
+                              />
+                              <button onClick={() => handleOverrideLimit(account.id)} className="btn-sm btn-primary">
+                                ✓
+                              </button>
+                              <button onClick={() => setEditingLimit(null)} className="btn-sm btn-secondary">
+                                ✕
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingLimit(account.id);
+                                setCustomLimitValue(summary.dailyLimit?.toString() || '');
+                              }}
+                              className="btn-text"
+                            >
+                              ✏️ Override dagelijks limiet
+                            </button>
+                          )}
                         </div>
-                        <div className="info-item">
-                            <span className="info-icon">🚶</span>
-                            <strong>Standaard</strong>
-                            <span>4 weken, start met 10/dag</span>
+                      )}
+
+                      {/* Controls */}
+                      <div className="account-controls">
+                        {!summary.enabled ? (
+                          <button
+                            onClick={() => setShowWizard(account.id)}
+                            className="btn btn-primary"
+                          >
+                            🔥 Warm-up Starten
+                          </button>
+                        ) : summary.paused ? (
+                          <button onClick={() => handleResume(account.id)} className="btn btn-success">
+                            ▶️ Hervatten
+                          </button>
+                        ) : !summary.isComplete ? (
+                          <button onClick={() => handlePause(account.id)} className="btn btn-warning">
+                            ⏸️ Pauzeren
+                          </button>
+                        ) : null}
+
+                        {summary.enabled && (
+                          <button onClick={() => handleDisable(account.id)} className="btn btn-danger-text">
+                            Warm-up Uitschakelen
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Stats */}
+                      {summary.enabled && (
+                        <div className="account-stats">
+                          <div className="stat">
+                            <span className="stat-value">{summary.totalSent || 0}</span>
+                            <span className="stat-label">Totaal verzonden</span>
+                          </div>
+                          <div className="stat">
+                            <span className="stat-value">{summary.daysRemaining || 0}</span>
+                            <span className="stat-label">Dagen resterend</span>
+                          </div>
                         </div>
-                        <div className="info-item">
-                            <span className="info-icon">🏃</span>
-                            <strong>Agressief</strong>
-                            <span>2 weken, start met 20/dag</span>
-                        </div>
-                    </div>
+                      )}
+                    </>
+                  )}
                 </div>
-            </div>
+              );
+            })}
+          </div>
+        )}
 
-            <style jsx>{`
+        {/* Info Section */}
+        <div className="info-section">
+          <h3>💡 Over Email Warm-up</h3>
+          <p>
+            Email warm-up is het proces van geleidelijk het volume van verzonden emails verhogen
+            vanaf een nieuwe email account. Dit helpt om een goede reputatie op te bouwen bij
+            email providers zoals Gmail en Outlook, zodat je emails niet in spam belanden.
+          </p>
+          <div className="info-grid">
+            <div className="info-item">
+              <span className="info-icon">🐢</span>
+              <strong>Voorzichtig</strong>
+              <span>8 weken, start met 3/dag</span>
+            </div>
+            <div className="info-item">
+              <span className="info-icon">🚶</span>
+              <strong>Standaard</strong>
+              <span>4 weken, start met 10/dag</span>
+            </div>
+            <div className="info-item">
+              <span className="info-icon">🏃</span>
+              <strong>Agressief</strong>
+              <span>2 weken, start met 20/dag</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
         .container {
           max-width: 1200px;
           margin: 0 auto;
           padding: 20px;
         }
 
-        .nav-bar {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
-        }
-
-        .nav-link {
-          padding: 10px 16px;
-          background: #1a1a2e;
-          color: #ccc;
-          text-decoration: none;
-          border-radius: 8px;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .nav-link:hover { background: #252542; color: #fff; }
-        .nav-link.active { background: #f59e0b; color: #fff; }
-
         .page-header {
           margin-bottom: 32px;
+          padding: 24px 32px;
+          background: rgba(26, 26, 46, 0.6);
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(12px);
         }
 
         .page-header h1 {
@@ -282,7 +260,7 @@ export default function WarmupPage() {
 
         .page-header p {
           margin: 8px 0 0;
-          color: #888;
+          color: #94a3b8;
         }
 
         .empty-state {
@@ -533,7 +511,7 @@ export default function WarmupPage() {
         }
       `}</style>
 
-            <style jsx global>{`
+      <style jsx global>{`
         html, body {
           margin: 0;
           padding: 0;
@@ -542,6 +520,6 @@ export default function WarmupPage() {
           font-family: 'Inter', -apple-system, sans-serif;
         }
       `}</style>
-        </>
-    );
+    </>
+  );
 }

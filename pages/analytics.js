@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import Navigation from '../components/Navigation';
 
 export default function Analytics() {
   const [stats, setStats] = useState(null);
@@ -191,7 +192,10 @@ export default function Analytics() {
 
       <div className="dashboard">
         {/* Header */}
-        <header className="header">
+        <Navigation dark={true} />
+
+        {/* Page Header */}
+        <div className="page-header">
           <div className="logo">
             <span className="logo-text">SKYE</span>
             <span className="logo-dot"></span>
@@ -205,9 +209,8 @@ export default function Analytics() {
             >
               {scanning ? '🔄 Scannen...' : '📬 Scan Replies'}
             </button>
-            <a href="/" className="back-link">← Terug naar mailer</a>
           </div>
-        </header>
+        </div>
 
         {/* Tabs */}
         <nav className="tabs">
@@ -591,13 +594,13 @@ export default function Analytics() {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           }
 
-          .header {
+          .page-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 20px 32px;
-            background: rgba(0,0,0,0.3);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 24px 32px 8px;
+            /* background: rgba(0,0,0,0.3); */
+            /* border-bottom: 1px solid rgba(255,255,255,0.1); */
           }
 
           .logo {

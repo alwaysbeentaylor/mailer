@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import Navigation from "../components/Navigation";
 import {
   getCampaigns,
   getCampaign,
@@ -314,15 +315,8 @@ export default function Campaigns() {
 
       <div className="container">
         {/* Navigation */}
-        <nav className="nav-bar">
-          <Link href="/" className="nav-link">📧 Verstuur</Link>
-          <Link href="/batch" className="nav-link">📦 Batch</Link>
-          <Link href="/campaigns" className="nav-link active">🚀 Campagnes</Link>
-          <Link href="/enrich" className="nav-link">🔍 Enricher</Link>
-          <Link href="/analytics" className="nav-link">📊 Analytics</Link>
-          <Link href="/warmup" className="nav-link">🔥 Warm-up</Link>
-          <Link href="/settings" className="nav-link">⚙️ Settings</Link>
-        </nav>
+        {/* Navigation */}
+        <Navigation dark={true} />
 
         <div className="layout">
           {/* Sidebar - Campaign List */}
@@ -527,25 +521,7 @@ export default function Campaigns() {
           padding: 20px;
         }
 
-        .nav-bar {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 24px;
-          flex-wrap: wrap;
-        }
 
-        .nav-link {
-          padding: 10px 16px;
-          background: #1a1a2e;
-          color: #ccc;
-          text-decoration: none;
-          border-radius: 8px;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .nav-link:hover { background: #252542; color: #fff; }
-        .nav-link.active { background: #00A4E8; color: #fff; }
 
         .layout {
           display: grid;
