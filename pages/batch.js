@@ -420,13 +420,18 @@ export default function BatchPage() {
         batches[batchIndex].emails.push(lead);
       });
 
-      let totalSent = 0;
-      let totalFailed = 0;
+      // Shared counter object (mutable reference for parallel access)
+      const counter = { sent: 0, failed: 0, processed: 0 };
       const details = [];
+
+      // Update progress function
+      const updateProgress = () => {
+        setProgress({ current: counter.processed, total: validLeads.length });
+      };
 
       // Process all batches in parallel
       const batchPromises = batches.filter(b => b.emails.length > 0).map(async (batch) => {
-        const chunkSize = 10; // 10 emails at once per SMTP
+        const chunkSize = 5; // 5 emails at once per SMTP for better progress updates
 
         for (let i = 0; i < batch.emails.length; i += chunkSize) {
           const chunk = batch.emails.slice(i, i + chunkSize);
@@ -467,18 +472,19 @@ export default function BatchPage() {
             })
           );
 
-          // Update progress
+          // Update progress after each chunk
           chunkResults.forEach((result) => {
+            counter.processed++;
             if (result.status === 'fulfilled') {
               if (result.value.success) {
-                totalSent++;
+                counter.sent++;
                 details.push({
                   email: result.value.lead.toEmail,
                   business: result.value.lead.businessName,
                   status: 'sent'
                 });
               } else {
-                totalFailed++;
+                counter.failed++;
                 details.push({
                   email: result.value.lead.toEmail,
                   business: result.value.lead.businessName,
@@ -486,20 +492,22 @@ export default function BatchPage() {
                 });
               }
             } else {
-              totalFailed++;
+              counter.failed++;
             }
-            setProgress(prev => ({ ...prev, current: totalSent + totalFailed }));
           });
+
+          // Update progress bar after each chunk completes
+          updateProgress();
         }
       });
 
       await Promise.all(batchPromises);
 
-      console.log(`🏁 GODMODE COMPLETE: ${totalSent} sent, ${totalFailed} failed`);
+      console.log(`🏁 GODMODE COMPLETE: ${counter.sent} sent, ${counter.failed} failed`);
 
       setResults({
-        sent: totalSent,
-        failed: totalFailed,
+        sent: counter.sent,
+        failed: counter.failed,
         details
       });
 
