@@ -2,22 +2,7 @@
 // Returns smart recommendations for SMTP accounts
 
 import { getSmtpAdvice, getBulkSmtpAdvice } from '../../utils/smtp-advisor';
-
-// Memory store fallback (same as smtp-accounts.js)
-let memoryStore = {};
-
-async function getKV() {
-    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        return null;
-    }
-    try {
-        const { kv } = await import('@vercel/kv');
-        await kv.ping();
-        return kv;
-    } catch (e) {
-        return null;
-    }
-}
+import { storage } from '../../utils/storage';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -25,17 +10,10 @@ export default async function handler(req, res) {
     }
 
     const { accountId, accountIds } = req.body;
-
-    const kv = await getKV();
     const KV_KEY = 'smtp_accounts';
 
     try {
-        let accounts = [];
-        if (kv) {
-            accounts = await kv.get(KV_KEY) || [];
-        } else {
-            accounts = memoryStore[KV_KEY] || [];
-        }
+        const accounts = await storage.get(KV_KEY) || [];
 
         // Single account advice
         if (accountId) {

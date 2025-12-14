@@ -1,237 +1,97 @@
+
 import { WARMUP_PROFILES } from '../utils/warmupProfiles';
 
 export default function WarmupStatus({ summary, compact = false }) {
-    if (!summary) return null;
+  if (!summary) return null;
 
-    const {
-        enabled,
-        paused,
-        profileName,
-        currentPhase,
-        totalPhases,
-        dailyLimit,
-        todaySent,
-        remaining,
-        progress,
-        daysRemaining,
-        isComplete
-    } = summary;
+  const {
+    enabled,
+    paused,
+    profileName,
+    currentPhase,
+    totalPhases,
+    dailyLimit,
+    todaySent,
+    remaining,
+    progress,
+    daysRemaining,
+    isComplete
+  } = summary;
 
-    if (!enabled) {
-        return (
-            <div className={`warmup-status ${compact ? 'compact' : ''} disabled`}>
-                <span className="status-icon">❄️</span>
-                <span className="status-text">Warm-up uit</span>
-                <style jsx>{styles}</style>
-            </div>
-        );
-    }
-
-    if (isComplete) {
-        return (
-            <div className={`warmup-status ${compact ? 'compact' : ''} complete`}>
-                <span className="status-icon">🔥</span>
-                <span className="status-text">Volledig opgewarmd</span>
-                <style jsx>{styles}</style>
-            </div>
-        );
-    }
-
-    if (paused) {
-        return (
-            <div className={`warmup-status ${compact ? 'compact' : ''} paused`}>
-                <span className="status-icon">⏸️</span>
-                <span className="status-text">Gepauzeerd</span>
-                <style jsx>{styles}</style>
-            </div>
-        );
-    }
-
-    if (compact) {
-        return (
-            <div className="warmup-status compact">
-                <div className="compact-info">
-                    <span className="status-icon">🔥</span>
-                    <span className="remaining">{remaining} over</span>
-                </div>
-                <div className="mini-bar">
-                    <div className="mini-bar-fill" style={{ width: `${progress}%` }} />
-                </div>
-                <style jsx>{styles}</style>
-            </div>
-        );
-    }
-
+  if (!enabled) {
     return (
-        <div className="warmup-status">
-            <div className="status-header">
-                <span className="profile-badge">{profileName}</span>
-                <span className="phase-badge">Fase {currentPhase}/{totalPhases}</span>
-            </div>
-
-            <div className="progress-section">
-                <div className="progress-labels">
-                    <span>Vandaag: {todaySent}/{dailyLimit}</span>
-                    <span className="remaining-text">{remaining} over</span>
-                </div>
-                <div className="progress-bar">
-                    <div
-                        className="progress-fill"
-                        style={{ width: `${Math.min(100, progress)}%` }}
-                    />
-                </div>
-            </div>
-
-            {remaining === 0 && (
-                <div className="limit-warning">
-                    ⚠️ Dagelijks limiet bereikt
-                </div>
-            )}
-
-            <div className="days-remaining">
-                {daysRemaining > 0 ? (
-                    <span>📅 Volledig over {daysRemaining} dagen</span>
-                ) : (
-                    <span>✅ Warm-up bijna compleet</span>
-                )}
-            </div>
-
-            <style jsx>{styles}</style>
-        </div>
+      <div className={`p-4 rounded-xl border border-glass flex items-center gap-2 ${compact ? 'py-2 px-3 text-sm' : ''} bg-white/5 opacity-60`}>
+        <span className="text-lg">❄️</span>
+        <span className="text-secondary">Warm-up uit</span>
+      </div>
     );
+  }
+
+  if (isComplete) {
+    return (
+      <div className={`p-4 rounded-xl border border-success/30 flex items-center gap-2 ${compact ? 'py-2 px-3 text-sm' : ''} bg-success/10`}>
+        <span className="text-lg">🔥</span>
+        <span className="text-success font-bold">Volledig opgewarmd</span>
+      </div>
+    );
+  }
+
+  if (paused) {
+    return (
+      <div className={`p-4 rounded-xl border border-warning/30 flex items-center gap-2 ${compact ? 'py-2 px-3 text-sm' : ''} bg-warning/10`}>
+        <span className="text-lg">⏸️</span>
+        <span className="text-warning font-bold">Gepauzeerd</span>
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 py-2">
+        <div className="flex items-center gap-2 min-w-[80px]">
+          <span>🔥</span>
+          <span className="text-accent text-sm font-bold">{remaining} over</span>
+        </div>
+        <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/5 border border-glass rounded-xl p-5">
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-xs text-secondary uppercase tracking-wider font-bold">{profileName}</span>
+        <span className="badge badge-info">Fase {currentPhase}/{totalPhases}</span>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex justify-between text-sm text-secondary mb-2">
+          <span>Vandaag: {todaySent}/{dailyLimit}</span>
+          <span className="text-accent font-bold">{remaining} over</span>
+        </div>
+        <div className="h-2 bg-white/10 rounded-full overflow-hidden shadow-inner">
+          <div
+            className="h-full bg-gradient-to-r from-cyan-400 to-blue-600 shadow-lg shadow-cyan-500/50 transition-all duration-300"
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
+        </div>
+      </div>
+
+      {remaining === 0 && (
+        <div className="mb-3 p-2 bg-warning/10 border border-warning/20 rounded text-warning text-xs font-bold text-center">
+          ⚠️ Dagelijks limiet bereikt
+        </div>
+      )}
+
+      <div className="text-xs text-secondary text-right">
+        {daysRemaining > 0 ? (
+          <span>📅 Volledig over {daysRemaining} dagen</span>
+        ) : (
+          <span className="text-success">✅ Warm-up bijna compleet</span>
+        )}
+      </div>
+    </div>
+  );
 }
-
-const styles = `
-  .warmup-status {
-    background: #1a1a2e;
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid #2a2a4e;
-  }
-
-  .warmup-status.compact {
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .warmup-status.disabled {
-    opacity: 0.6;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .warmup-status.complete {
-    background: linear-gradient(135deg, #1a2e1a, #1a1a2e);
-    border-color: #22c55e;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .warmup-status.paused {
-    background: linear-gradient(135deg, #2e2a1a, #1a1a2e);
-    border-color: #f59e0b;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .status-icon {
-    font-size: 16px;
-  }
-
-  .status-text {
-    color: #aaa;
-    font-size: 14px;
-  }
-
-  .compact-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .remaining {
-    color: #00A4E8;
-    font-weight: 600;
-    font-size: 13px;
-  }
-
-  .mini-bar {
-    flex: 1;
-    height: 6px;
-    background: #2a2a4e;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .mini-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #00A4E8, #06b6d4);
-    transition: width 0.3s;
-  }
-
-  .status-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-
-  .profile-badge {
-    font-size: 12px;
-    color: #aaa;
-  }
-
-  .phase-badge {
-    font-size: 12px;
-    color: #00A4E8;
-    font-weight: 600;
-  }
-
-  .progress-section {
-    margin-bottom: 12px;
-  }
-
-  .progress-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: #888;
-    margin-bottom: 6px;
-  }
-
-  .remaining-text {
-    color: #00A4E8;
-    font-weight: 600;
-  }
-
-  .progress-bar {
-    height: 8px;
-    background: #2a2a4e;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #00A4E8, #06b6d4);
-    transition: width 0.3s;
-  }
-
-  .limit-warning {
-    background: #451a1a;
-    color: #ef4444;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    margin-bottom: 12px;
-  }
-
-  .days-remaining {
-    font-size: 13px;
-    color: #888;
-  }
-`;

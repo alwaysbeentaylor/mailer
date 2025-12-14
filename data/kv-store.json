@@ -1,0 +1,20 @@
+{
+  "smtp_accounts": [
+    {
+      "id": "smtp_1765706548946",
+      "name": "smtp.gmail.com",
+      "host": "smtp.gmail.com",
+      "port": "587",
+      "user": "develop.json@gmail.com",
+      "pass": "iuffeqslztctiajh",
+      "fromName": "",
+      "fromEmail": "",
+      "hourlyLimit": 10,
+      "dailyLimit": 50,
+      "warmupEnabled": false,
+      "active": true,
+      "createdAt": "2025-12-14T10:02:28.946Z",
+      "updatedAt": "2025-12-14T10:05:03.254Z"
+    }
+  ]
+}

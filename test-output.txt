@@ -1,0 +1,51 @@
+﻿[dotenv@17.2.3] injecting env (3) from .env.local -- tip: ­ƒùé´©Å backup and recover secrets: https://dotenvx.com/ops
+­ƒº¬ Testing AI email generation...
+
+API Key: Ô£à Present
+­ƒôñ Sending request to Gemini...
+
+­ƒôÑ Raw AI Response:
+============================================================
+THOUGHTS:
+Als expert in cold email copywriting is mijn doel om een test email te schrijven die niet alleen voldoet aan de gevraagde structuur, maar ook de principes van effectieve cold outreach demonstreert, zelfs met generieke placeholders voor "Test Bedrijf".
+
+Mijn aanpak is als volgt:
+1.  **Subject Line:** Moet kort, nieuwsgierigmakend en relevant zijn. Ik gebruik een placeholder voor de naam van de ontvanger en het bedrijf om personalisatie te simuleren.
+2.  **Intro:** Direct en to-the-point, gericht op het snel vaststellen van relevantie door een veelvoorkomend bedrijfsprobleem te benoemen dat "Test Bedrijf" mogelijk ervaart.
+3.  **Audit:** Hier identificeer ik twee veelvoorkomende knelpunten in (cold) outreach die relevant zijn voor elk bedrijf dat prospects probeert te bereiken. Dit positioneert de afzender als een expert die problemen kan diagnosticeren.
+4.  **Boosters:** Deze sectie biedt directe oplossingen voor de problemen die in de 'Audit' zijn genoemd. Dit toont de waarde en expertise van de afzender.
+5.  **Resultaat:** Een duidelijke, beknopte samenvatting van de verwachte voordelen na het implementeren van de voorgestelde oplossingen.
+6.  **CTA (Call to Action):** Moet laagdrempelig zijn en gericht op het starten van een gesprek, niet op een directe verkoop. Ik kies voor een kort overleg om de specificaties te bespreken.
+
+De inhoud is ontworpen om de kracht van personalisatie, probleem-oplossing framing en een duidelijke waardepropositie te laten zien, zelfs in een "test" context.
+
+EMAIL_CONTENT:
+SUBJECT: Korte vraag over [Naam Ontvanger] & [Test Bedrijf]
+
+INTRO:
+Beste [Naam Ontvanger],
+
+Ik benader u omdat ik recentelijk [Test Bedrijf] heb gezien en ik vermoed dat u, net als veel bedrijven, mogelijk worstelt met het omzetten van onbekende prospects naar kwalitatieve leads.
+
+AUDIT:
+- Uw huidige aanpak voor het bereiken van
+============================================================
+
+
+­ƒöì Testing parsing...
+
+Ô£à Found EMAIL_CONTENT block
+
+­ƒôº Parsed Sections:
+-------------------
+intro: Ô£à (213 chars)
+   "Beste [Naam Ontvanger],
+
+Ik benader u omdat ik recentelijk [Test Bedrijf] heb gezien en ik vermoed d..."
+audit: Ô£à (41 chars)
+   "- Uw huidige aanpak voor het bereiken van"
+boosters: ÔØî EMPTY
+resultaat: ÔØî EMPTY
+cta: ÔØî EMPTY
+
+ÔÜá´©Å 3 sections are empty!

@@ -118,7 +118,11 @@ export function createCampaign(data) {
             sentAt: null,
             error: null,
             smtpUsed: null,
-            emailId: null // tracking ID
+            emailId: null, // tracking ID
+            // Generated email content (filled after sending)
+            generatedSubject: null,
+            generatedBody: null,
+            generatedSections: null
         }))
     };
 

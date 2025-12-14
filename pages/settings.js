@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import Navigation from "../components/Navigation";
+import Layout from "../components/Layout";
 import BulkImportModal from "../components/BulkImportModal";
 import BulkSettingsModal from "../components/BulkSettingsModal";
 import SmtpSettingsModal from "../components/SmtpSettingsModal";
@@ -252,49 +253,45 @@ export default function Settings() {
   };
 
   return (
-    <>
-      <Head>
-        <title>SMTP Settings | SKYE Mail Agent</title>
-      </Head>
-
-      <div className="container">
-        {/* Navigation */}
-        <Navigation dark={true} />
-
-        <div className="page-header">
-          <h1>⚙️ SMTP Instellingen</h1>
-          <p>Beheer je email accounts voor het verzenden van campagnes</p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="actions-bar">
-          <div className="actions-left">
-            <button className="btn btn-primary" onClick={() => openAccountSettings()}>
+    <Layout title="SMTP Settings | SKYE Mail Agent">
+      <div className="page-container">
+        <div className="page-header flex justify-between items-center">
+          <div>
+            <h1 className="page-title"><span className="text-gradient">SMTP</span> Instellingen</h1>
+            <p className="page-subtitle">Beheer je email accounts voor het verzenden van campagnes.</p>
+          </div>
+          <div className="flex gap-2">
+            <button className="premium-button" onClick={() => openAccountSettings()}>
               ➕ Nieuw Account
             </button>
-            <button className="btn btn-secondary" onClick={() => setShowBulkImport(true)}>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="flex flex-wrap gap-4 mb-6 items-center justify-between">
+          <div className="flex gap-2">
+            <button className="premium-button secondary" onClick={() => setShowBulkImport(true)}>
               📋 Bulk Import
             </button>
             {selectedIds.length > 0 && (
-              <button className="btn btn-secondary" onClick={() => setShowBulkSettings(true)}>
+              <button className="premium-button secondary" onClick={() => setShowBulkSettings(true)}>
                 ⚙️ Bulk Settings ({selectedIds.length})
               </button>
             )}
           </div>
-          <div className="actions-right">
-            <span className="account-count">
-              {accounts.length} account{accounts.length !== 1 ? 's' : ''}
-            </span>
+          <div className="text-sm text-secondary">
+            {accounts.length} account{accounts.length !== 1 ? 's' : ''}
           </div>
         </div>
 
-        {/* Filter & Sort Bar */}
-        <div className="filter-bar">
-          <div className="filters">
-            {/* Status Filter */}
+        {/* Filters and Table */}
+        <div className="glass-card p-0 overflow-hidden">
+          {/* Filter Bar */}
+          <div className="p-4 border-b border-glass flex flex-wrap gap-4 items-center bg-white/5">
             <select
               value={filter.status}
               onChange={e => { setFilter(f => ({ ...f, status: e.target.value })); setPage(1); }}
+              className="premium-input w-[150px] py-2 h-auto text-sm"
             >
               <option value="all">Alle Status</option>
               <option value="cold">❄️ Koud</option>
@@ -303,10 +300,10 @@ export default function Settings() {
               <option value="hot">💥 Hot</option>
             </select>
 
-            {/* Provider Filter */}
             <select
               value={filter.provider}
               onChange={e => { setFilter(f => ({ ...f, provider: e.target.value })); setPage(1); }}
+              className="premium-input w-[150px] py-2 h-auto text-sm"
             >
               <option value="all">Alle Providers</option>
               <option value="gmail">Gmail</option>
@@ -315,197 +312,207 @@ export default function Settings() {
               <option value="custom">Custom</option>
             </select>
 
-            {/* Search */}
-            <input
-              type="text"
-              placeholder="🔍 Zoeken..."
-              value={filter.search}
-              onChange={e => { setFilter(f => ({ ...f, search: e.target.value })); setPage(1); }}
-              className="search-input"
-            />
-          </div>
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="🔍 Zoeken..."
+                value={filter.search}
+                onChange={e => { setFilter(f => ({ ...f, search: e.target.value })); setPage(1); }}
+                className="premium-input w-full py-2 h-auto text-sm"
+              />
+            </div>
 
-          <div className="sort-pagination">
-            {/* Sort */}
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="premium-input w-[150px] py-2 h-auto text-sm"
+            >
               <option value="recent">Recent</option>
               <option value="name">Naam A-Z</option>
               <option value="status">Status</option>
               <option value="capacity">Capaciteit</option>
             </select>
 
-            {/* Per Page */}
-            <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}>
+            <select
+              value={perPage}
+              onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
+              className="premium-input w-[80px] py-2 h-auto text-sm"
+            >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
-              <option value={250}>250</option>
-              <option value={500}>500</option>
             </select>
           </div>
-        </div>
 
-        {/* Accounts Table */}
-        <div className="accounts-table">
-          {/* Header */}
-          <div className="table-header">
-            <div className="col-check">
-              <input
-                type="checkbox"
-                checked={selectAll}
-                onChange={handleSelectAll}
-              />
-            </div>
-            <div className="col-account">Account</div>
-            <div className="col-status">Status</div>
-            <div className="col-usage">Gebruik</div>
-            <div className="col-actions">Acties</div>
-          </div>
-
-          {/* Loading State */}
-          {loading && (
-            <div className="loading-state">
-              ⏳ Accounts laden...
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!loading && accounts.length === 0 && (
-            <div className="empty-state">
-              <p>🔌 Nog geen SMTP accounts geconfigureerd</p>
-              <p>Klik op "Nieuw Account" of "Bulk Import" om te beginnen</p>
-            </div>
-          )}
-
-          {/* No Results */}
-          {!loading && accounts.length > 0 && paginatedAccounts.length === 0 && (
-            <div className="empty-state">
-              <p>🔍 Geen accounts gevonden met deze filters</p>
-            </div>
-          )}
-
-          {/* Account Rows */}
-          {paginatedAccounts.map(account => {
-            const advice = advices[account.id] || {};
-            return (
-              <div
-                key={account.id}
-                className={`table-row ${account.active ? '' : 'inactive'} ${selectedIds.includes(account.id) ? 'selected' : ''}`}
-              >
-                {/* Checkbox */}
-                <div className="col-check">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(account.id)}
-                    onChange={() => handleSelect(account.id)}
-                  />
-                </div>
-
-                {/* Account Info */}
-                <div className="col-account">
-                  <div className="account-email">📧 {account.user}</div>
-                  <div className="account-meta">
-                    {account.name && <span className="account-name">{account.name}</span>}
-                    <span className="account-provider">{advice.provider || 'Custom'}</span>
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div className="col-status">
-                  <span
-                    className="status-badge"
-                    style={{
-                      background: `${advice.statusColor}20`,
-                      borderColor: advice.statusColor,
-                      color: advice.statusColor
-                    }}
-                  >
-                    {advice.statusEmoji} {advice.statusLabel || 'Unknown'}
-                  </span>
-                </div>
-
-                {/* Usage */}
-                <div className="col-usage">
-                  <span className="usage-text">
-                    {advice.usage?.today || 0}/{advice.usage?.dailyLimit || 50}
-                  </span>
-                  <div className="usage-bar">
-                    <div
-                      className="usage-fill"
-                      style={{
-                        width: `${Math.min(100, ((advice.usage?.today || 0) / (advice.usage?.dailyLimit || 50)) * 100)}%`,
-                        background: advice.statusColor
-                      }}
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="premium-table">
+              <thead>
+                <tr>
+                  <th className="w-[50px] text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      className="cursor-pointer"
                     />
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="col-actions">
-                  <button
-                    className="btn-icon"
-                    title="Instellingen"
-                    onClick={() => openAccountSettings(account)}
-                  >
-                    ⚙️
-                  </button>
-                  <button
-                    className="btn-icon"
-                    title="Verwijderen"
-                    onClick={() => handleDelete(account.id)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button
-              className="btn btn-sm"
-              disabled={page === 1}
-              onClick={() => setPage(1)}
-            >
-              ⏮️
-            </button>
-            <button
-              className="btn btn-sm"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              ◀️
-            </button>
-            <span className="page-info">
-              {page} / {totalPages}
-            </span>
-            <button
-              className="btn btn-sm"
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              ▶️
-            </button>
-            <button
-              className="btn btn-sm"
-              disabled={page === totalPages}
-              onClick={() => setPage(totalPages)}
-            >
-              ⏭️
-            </button>
+                  </th>
+                  <th>Account</th>
+                  <th>Status</th>
+                  <th>Gebruik</th>
+                  <th className="text-right">Acties</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-12 text-secondary">
+                      <div className="spinner mx-auto mb-2 text-accent">⚙️</div>
+                      Accounts laden...
+                    </td>
+                  </tr>
+                ) : accounts.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-12 text-secondary">
+                      <div className="text-4xl mb-4">🔌</div>
+                      <p>Nog geen SMTP accounts geconfigureerd</p>
+                    </td>
+                  </tr>
+                ) : paginatedAccounts.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center py-12 text-secondary">
+                      <div className="text-4xl mb-4">🔍</div>
+                      <p>Geen accounts gevonden met deze filters</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedAccounts.map(account => {
+                    const advice = advices[account.id] || {};
+                    return (
+                      <tr
+                        key={account.id}
+                        className={`${!account.active ? 'opacity-50 grayscale-[0.5]' : ''} ${selectedIds.includes(account.id) ? 'bg-accent/10' : ''}`}
+                      >
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(account.id)}
+                            onChange={() => handleSelect(account.id)}
+                            className="cursor-pointer"
+                          />
+                        </td>
+                        <td>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-white text-sm">{account.user}</span>
+                            <div className="flex gap-2 items-center mt-1 text-xs text-secondary">
+                              {account.name && <span>{account.name}</span>}
+                              <span className="bg-white/10 px-1.5 rounded">{advice.provider || 'Custom'}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          {advice.statusLabel ? (
+                            <span
+                              className="badge"
+                              style={{
+                                background: `${advice.statusColor}20`,
+                                borderColor: advice.statusColor,
+                                color: advice.statusColor
+                              }}
+                            >
+                              {advice.statusEmoji} {advice.statusLabel}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-secondary">-</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="w-[120px]">
+                            <div className="flex justify-between text-xs mb-1 text-secondary">
+                              <span>{advice.usage?.today || 0}</span>
+                              <span>{advice.usage?.dailyLimit || 50}</span>
+                            </div>
+                            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${Math.min(100, ((advice.usage?.today || 0) / (advice.usage?.dailyLimit || 50)) * 100)}%`,
+                                  background: advice.statusColor || '#64748b'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                              title="Instellingen"
+                              onClick={() => openAccountSettings(account)}
+                            >
+                              ⚙️
+                            </button>
+                            <button
+                              className="p-1.5 hover:bg-error/20 text-muted hover:text-error rounded transition-colors"
+                              title="Verwijderen"
+                              onClick={() => handleDelete(account.id)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div >
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-glass flex justify-center items-center gap-2">
+              <button
+                className="premium-button secondary text-xs p-2 h-8 w-8 flex items-center justify-center"
+                disabled={page === 1}
+                onClick={() => setPage(1)}
+              >
+                ⏮️
+              </button>
+              <button
+                className="premium-button secondary text-xs p-2 h-8 w-8 flex items-center justify-center"
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+              >
+                ◀️
+              </button>
+              <span className="text-sm text-secondary px-2">
+                {page} / {totalPages}
+              </span>
+              <button
+                className="premium-button secondary text-xs p-2 h-8 w-8 flex items-center justify-center"
+                disabled={page === totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                ▶️
+              </button>
+              <button
+                className="premium-button secondary text-xs p-2 h-8 w-8 flex items-center justify-center"
+                disabled={page === totalPages}
+                onClick={() => setPage(totalPages)}
+              >
+                ⏭️
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Modals */}
-      < BulkImportModal
+      <BulkImportModal
         isOpen={showBulkImport}
-        onClose={() => setShowBulkImport(false)
-        }
+        onClose={() => setShowBulkImport(false)}
         onImport={handleBulkImport}
       />
 
@@ -524,267 +531,6 @@ export default function Settings() {
         onSave={handleSave}
         onTest={handleTest}
       />
-
-      <style jsx>{`
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-
-        .page-header {
-          margin-bottom: 24px;
-          padding: 16px 24px;
-          background: rgba(30, 30, 45, 0.5);
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .page-header h1 {
-          margin: 0 0 8px 0;
-          color: #fff;
-          font-size: 24px;
-        }
-
-        .page-header p {
-          margin: 0;
-          color: #94a3b8;
-        }
-
-        .actions-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 16px;
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-
-        .actions-left {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .account-count {
-          color: #888;
-          font-size: 14px;
-        }
-
-        .btn {
-          padding: 10px 18px;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-          font-size: 14px;
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #00A4E8, #0078d4);
-          color: white;
-        }
-
-        .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 164, 232, 0.4);
-        }
-
-        .btn-secondary {
-          background: rgba(255,255,255,0.1);
-          color: #fff;
-        }
-
-        .btn-secondary:hover {
-          background: rgba(255,255,255,0.15);
-        }
-
-        .btn-sm {
-          padding: 6px 12px;
-          font-size: 12px;
-        }
-
-        .btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none !important;
-        }
-
-        .filter-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 16px;
-          flex-wrap: wrap;
-        }
-
-        .filters {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .sort-pagination {
-          display: flex;
-          gap: 8px;
-        }
-
-        .filter-bar select,
-        .search-input {
-          padding: 8px 12px;
-          background: #1a1a2e;
-          border: 1px solid #2a2a4e;
-          border-radius: 6px;
-          color: #fff;
-          font-size: 13px;
-        }
-
-        .search-input {
-          width: 180px;
-        }
-
-        .accounts-table {
-          background: #1a1a2e;
-          border-radius: 12px;
-          overflow: hidden;
-          border: 1px solid #2a2a4e;
-        }
-
-        .table-header {
-          display: grid;
-          grid-template-columns: 40px 1fr 120px 120px 80px;
-          padding: 12px 16px;
-          background: #0d0d1a;
-          border-bottom: 1px solid #2a2a4e;
-          font-size: 12px;
-          color: #888;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .table-row {
-          display: grid;
-          grid-template-columns: 40px 1fr 120px 120px 80px;
-          padding: 12px 16px;
-          border-bottom: 1px solid #2a2a4e;
-          align-items: center;
-          transition: background 0.2s;
-        }
-
-        .table-row:last-child {
-          border-bottom: none;
-        }
-
-        .table-row:hover {
-          background: rgba(255,255,255,0.02);
-        }
-
-        .table-row.selected {
-          background: rgba(0, 164, 232, 0.1);
-        }
-
-        .table-row.inactive {
-          opacity: 0.5;
-        }
-
-        .col-check input {
-          width: 16px;
-          height: 16px;
-          cursor: pointer;
-        }
-
-        .account-email {
-          font-size: 14px;
-          color: #fff;
-          margin-bottom: 2px;
-        }
-
-        .account-meta {
-          display: flex;
-          gap: 8px;
-          font-size: 12px;
-          color: #888;
-        }
-
-        .account-name {
-          color: #aaa;
-        }
-
-        .status-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          border-radius: 20px;
-          font-size: 12px;
-          border: 1px solid;
-        }
-
-        .usage-text {
-          font-size: 13px;
-          color: #fff;
-          margin-bottom: 4px;
-          display: block;
-        }
-
-        .usage-bar {
-          height: 4px;
-          background: rgba(255,255,255,0.1);
-          border-radius: 2px;
-          overflow: hidden;
-        }
-
-        .usage-fill {
-          height: 100%;
-          border-radius: 2px;
-          transition: width 0.3s;
-        }
-
-        .col-actions {
-          display: flex;
-          gap: 4px;
-        }
-
-        .btn-icon {
-          padding: 6px 8px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          font-size: 16px;
-          opacity: 0.6;
-          transition: opacity 0.2s;
-        }
-
-        .btn-icon:hover {
-          opacity: 1;
-        }
-
-        .loading-state,
-        .empty-state {
-          padding: 60px 20px;
-          text-align: center;
-          color: #888;
-        }
-
-        .empty-state p:first-child {
-          font-size: 18px;
-          margin-bottom: 8px;
-        }
-
-        .pagination {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 8px;
-          margin-top: 16px;
-        }
-
-        .page-info {
-          color: #888;
-          font-size: 14px;
-          padding: 0 12px;
-        }
-      `}</style>
-    </>
+    </Layout>
   );
 }

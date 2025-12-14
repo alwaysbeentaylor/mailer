@@ -5,30 +5,30 @@ emoji_limit: 5
 ---
 
 # Style Instructions
-FOMO creëren! Maak ze bewust van wat ze ELKE DAG mislopen.
-Gebruik woorden als "nu", "vandaag nog", "elke dag", "direct".
-Urgente toon maar niet spammy. Licht dramatisch. Emoji's: ⚠️🔥⏰
+Urgentie creëren! Laat ze voelen wat ze missen. Elke dag.
+Korte zinnen. Directe woorden: "nu", "vandaag", "elke dag".
+Niet spammy. Wel duidelijk. Emoji's: ⚠️🔥⏰
 
 # Subject Templates
 - {businessName} - je mist klanten (elke dag)
 - ⚠️ {businessName} - dit moet je weten
-- {businessName} - verlies stoppen?
+- {businessName} - stop het verlies
 
 # Intro Example
-"Elke dag dat {websiteUrl} zo blijft, loop je klanten mis. Letterlijk. Ik zag drie dingen die je NU moet weten."
+"Elke dag dat je site zo blijft, loop je klanten mis. Ik zag drie dingen die je NU moet weten."
 
 # Result Example
-"Elke dag dat je als {nicheLabel} wacht = gemist: {resultClaim}. Andere {nicheLabel}s die dit fixen zien DIRECT resultaat."
+"Elke dag wachten = klanten kwijt. Fiksen = direct meer verkoop."
 
 # CTA Example
-"Hoe langer je wacht, hoe meer je mist. 10 min bellen? Vandaag nog?"
+"Langer wachten = meer missen. Bellen? 10 min. Vandaag nog."
 
 # Audit Points
-- ⚠️ NIET mobielvriendelijk - je verliest NU klanten
-- 🚨 Geen actieknop - bezoekers weten niet wat te doen
+- ⚠️ NIET goed op mobiel - je verliest NU klanten
+- 🚨 Geen actieknop - mensen weten niet wat te doen
 - ⏰ Trage site - elke seconde kost je geld
 
 # Solution Points
-- ⚡ Snelle site = direct meer conversies
-- 🎯 Sterke CTA = klanten die actie nemen
-- 💰 Modern = vertrouwen = verkoop
+- ⚡ Snelle site = direct meer verkoop
+- 🎯 Goede knop = mensen nemen actie
+- 💰 Modern = vertrouwen = geld

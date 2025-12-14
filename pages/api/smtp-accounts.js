@@ -1,43 +1,15 @@
 // API Endpoint: SMTP Accounts CRUD
-// Slaat SMTP accounts op in Vercel KV (of localStorage fallback)
+// Slaat SMTP accounts op in Vercel KV (of local file fallback)
 
-// Simple in-memory fallback for development (will be replaced by KV in production)
-let memoryStore = {};
-
-// Helper to get KV client (if available and configured)
-async function getKV() {
-    // Check if KV environment variables are configured
-    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
-        console.log('SMTP Accounts: KV not configured, using memory store');
-        return null;
-    }
-
-    try {
-        // Try to import Vercel KV
-        const { kv } = await import('@vercel/kv');
-        // Test if KV is actually working by doing a simple ping
-        await kv.ping();
-        return kv;
-    } catch (e) {
-        console.error('SMTP Accounts: KV connection failed, using memory store:', e.message);
-        return null;
-    }
-}
+import { storage } from '../../utils/storage';
 
 export default async function handler(req, res) {
-    const kv = await getKV();
     const KV_KEY = 'smtp_accounts';
 
     // GET - Lijst alle SMTP accounts
     if (req.method === 'GET') {
         try {
-            let accounts = [];
-
-            if (kv) {
-                accounts = await kv.get(KV_KEY) || [];
-            } else {
-                accounts = memoryStore[KV_KEY] || [];
-            }
+            const accounts = await storage.get(KV_KEY) || [];
 
             // Strip passwords voor veiligheid (alleen voor listing)
             const safeAccounts = accounts.map(acc => ({
@@ -48,9 +20,10 @@ export default async function handler(req, res) {
             return res.status(200).json({
                 success: true,
                 accounts: safeAccounts,
-                source: kv ? 'kv' : 'memory'
+                source: 'storage'
             });
         } catch (error) {
+            console.error('SMTP GET error:', error);
             return res.status(500).json({ success: false, error: error.message });
         }
     }
@@ -65,12 +38,8 @@ export default async function handler(req, res) {
                 warmupEnabled, active = true
             } = req.body;
 
-            let accounts = [];
-            if (kv) {
-                accounts = await kv.get(KV_KEY) || [];
-            } else {
-                accounts = memoryStore[KV_KEY] || [];
-            }
+            // Haal bestaande accounts op
+            let accounts = await storage.get(KV_KEY) || [];
 
             // Check of we updaten of toevoegen
             const existingIndex = accounts.findIndex(a => a.id === id);
@@ -128,11 +97,7 @@ export default async function handler(req, res) {
             }
 
             // Sla op
-            if (kv) {
-                await kv.set(KV_KEY, accounts);
-            } else {
-                memoryStore[KV_KEY] = accounts;
-            }
+            await storage.set(KV_KEY, accounts);
 
             return res.status(200).json({
                 success: true,
@@ -154,24 +119,14 @@ export default async function handler(req, res) {
                 return res.status(400).json({ success: false, error: 'id is verplicht' });
             }
 
-            let accounts = [];
-            if (kv) {
-                accounts = await kv.get(KV_KEY) || [];
-            } else {
-                accounts = memoryStore[KV_KEY] || [];
-            }
-
+            const accounts = await storage.get(KV_KEY) || [];
             const newAccounts = accounts.filter(a => a.id !== id);
 
             if (newAccounts.length === accounts.length) {
                 return res.status(404).json({ success: false, error: 'Account niet gevonden' });
             }
 
-            if (kv) {
-                await kv.set(KV_KEY, newAccounts);
-            } else {
-                memoryStore[KV_KEY] = newAccounts;
-            }
+            await storage.set(KV_KEY, newAccounts);
 
             return res.status(200).json({ success: true, message: 'Account verwijderd' });
         } catch (error) {

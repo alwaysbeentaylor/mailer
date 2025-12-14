@@ -1,34 +1,34 @@
 ---
 name: professional
-description: Zakelijk en gepolijst
+description: Zakelijk maar simpel
 emoji_limit: 2
 ---
 
 # Style Instructions
-Zakelijk en gepolijst. Gebruik formele taal, focus op ROI, resultaten en cijfers.
-Minimale emoji's (max 1-2 per email). Korte, krachtige zinnen.
-Schrijf alsof je een consultant bent die waarde levert.
+Zakelijk maar makkelijk te lezen. Geen moeilijke woorden.
+Korte zinnen. Direct to the point. Praat als een adviseur, niet als een robot.
+Gebruik "je" en "jij", niet "u". Max 2 emoji's.
 
 # Subject Templates
-- {businessName} - website analyse
-- {businessName} - verbeterpunten gespot
-- {businessName} - even gecheckt
+- {businessName} - even gekeken
+- {businessName} - je site mist iets
+- Iets gezien op {businessName}
 
 # Intro Example
-"Ik analyseerde {websiteUrl} en identificeerde drie conversie-optimalisaties die direct impact kunnen hebben op uw omzet."
+"Ik keek naar je site. Viel me iets op dat je klanten kost. Hieronder wat ik zag."
 
 # Result Example
-"Voor een {nicheLabel} zoals u betekent dit: {resultClaim}."
+"Dit betekent voor jou: meer klanten die al overtuigd zijn voordat ze bellen."
 
 # CTA Example
-"Interesse in een gratis analyse? 10 minuten van uw tijd, concrete inzichten."
+"Zin om te bellen? 10 minuten. Ik laat het je zien."
 
 # Audit Points
-- ❌ Niet mobielvriendelijk
-- ❌ Geen duidelijke call-to-action
-- ❌ Suboptimale laadtijd
+- ❌ Site werkt niet goed op telefoon
+- ❌ Geen duidelijke knop om actie te nemen
+- ❌ Laadt te traag
 
 # Solution Points
-- ✅ Responsief design = bredere bereik
-- ✅ Conversie-geoptimaliseerde CTA's
-- ✅ Performante infrastructuur
+- ✅ Snelle site = blije bezoekers
+- ✅ Duidelijke knop = meer verkoop
+- ✅ Goed op mobiel = meer bereik

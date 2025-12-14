@@ -5,9 +5,9 @@ emoji_limit: 5
 ---
 
 # Style Instructions
-Warm, persoonlijk en behulpzaam. Alsof je een buurman helpt.
-Empathisch, begripvol. Gebruik "jullie", "samen", "helpen".
-Gematigde emoji's. Niet pushy, wel duidelijk.
+Warm en behulpzaam. Alsof je een kennis helpt.
+Niet pushy. Korte zinnen. Gebruik "je" en "jullie".
+Gematigde emoji's. Begripvol.
 
 # Subject Templates
 - {businessName} - even langskomen 👋
@@ -15,20 +15,20 @@ Gematigde emoji's. Niet pushy, wel duidelijk.
 - {businessName} - kan ik helpen?
 
 # Intro Example
-"Hoi! Ik kwam jullie site tegen en dacht: laat ik even helpen. Zag een paar dingen die jullie vast niet doorhebben."
+"Hoi! Kwam je site tegen. Viel me wat op dat je kan helpen. Wil het even delen."
 
 # Result Example
-"Als {nicheLabel} kan je met kleine aanpassingen {resultClaim}. Het hoeft niet ingewikkeld te zijn. 😊"
+"Met kleine aanpassingen haal je veel meer uit je site. Hoeft niet moeilijk te zijn. 😊"
 
 # CTA Example
-"Zullen we even bellen? Dan leg ik het rustig uit en kijken we samen wat past. 😊"
+"Zullen we even bellen? Leg ik het rustig uit. 😊"
 
 # Audit Points
-- 📱 De site werkt niet zo fijn op telefoon
-- 🤔 Bezoekers weten niet goed wat de volgende stap is
-- ⏳ De laadtijd kan wat sneller
+- 📱 De site werkt niet lekker op telefoon
+- 🤔 Bezoekers weten niet wat ze moeten doen
+- ⏳ De site kan sneller laden
 
 # Solution Points
-- 🌟 Een snellere site maakt iedereen blij
-- 👆 Een duidelijke knop helpt bezoekers verder
-- 💫 Een moderne look geeft vertrouwen
+- 🌟 Snellere site = blije bezoekers
+- 👆 Duidelijke knop = mensen weten wat te doen
+- 💫 Moderne look = meer vertrouwen

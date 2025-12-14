@@ -1,11 +1,16 @@
+
 import { useState, useRef, useEffect } from "react";
-import Head from "next/head";
 import Link from "next/link";
-import Navigation from "../components/Navigation";
+import { useRouter } from "next/router";
+import Layout from "../components/Layout";
+import { createCampaign, getSmtpAccounts, getActiveSmtpAccounts } from "../utils/campaignStore";
 
 const ENRICHER_RESULTS_KEY = 'skyeEnricherResults';
+const ENRICHER_UPLOADS_KEY = 'skyeEnricherUploads';
+const ENRICHER_PROCESSING_KEY = 'skyeEnricherProcessing';
 
 export default function EnrichPage() {
+    const router = useRouter();
     const [emails, setEmails] = useState([]);
     const [processing, setProcessing] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
@@ -14,6 +19,22 @@ export default function EnrichPage() {
     const [showTextInput, setShowTextInput] = useState(false);
     const [pasteText, setPasteText] = useState('');
     const [inputMode, setInputMode] = useState('email'); // 'email' of 'domain'
+
+    // Upload geschiedenis
+    const [uploadHistory, setUploadHistory] = useState([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    // Campagne modal & god mode
+    const [showCampaignModal, setShowCampaignModal] = useState(false);
+    const [campaignName, setCampaignName] = useState('');
+    const [useGodMode, setUseGodMode] = useState(false);
+    const [smtpAccounts, setSmtpAccounts] = useState([]);
+    const [selectedSmtpIds, setSelectedSmtpIds] = useState([]);
+    const [defaultTone, setDefaultTone] = useState('professional');
+
+    // Achtergrond processing
+    const [isBackgroundProcessing, setIsBackgroundProcessing] = useState(false);
+    const processingAbortRef = useRef(false);
 
     // Load saved results on mount
     useEffect(() => {
@@ -24,9 +45,33 @@ export default function EnrichPage() {
                 setResults(parsed.results || []);
                 setEmails(parsed.emails || []);
             }
+
+            // Load upload history
+            const historyData = localStorage.getItem(ENRICHER_UPLOADS_KEY);
+            if (historyData) {
+                setUploadHistory(JSON.parse(historyData) || []);
+            }
+
+            // Check for background processing state
+            const processingState = localStorage.getItem(ENRICHER_PROCESSING_KEY);
+            if (processingState) {
+                const state = JSON.parse(processingState);
+                if (state.isProcessing && state.emails?.length > 0) {
+                    setIsBackgroundProcessing(true);
+                    setEmails(state.emails);
+                    setProgress(state.progress || { current: 0, total: state.emails.length });
+                    // Resume processing
+                    resumeBackgroundProcessing(state);
+                }
+            }
         } catch (e) {
-            console.error('Error loading enricher results:', e);
+            console.error('Error loading enricher data:', e);
         }
+    }, []);
+
+    // Load SMTP accounts
+    useEffect(() => {
+        setSmtpAccounts(getSmtpAccounts());
     }, []);
 
     // Save results when they change
@@ -44,12 +89,47 @@ export default function EnrichPage() {
         }
     }, [results, emails]);
 
+    // Save upload to history
+    const saveUploadToHistory = (items, mode) => {
+        const upload = {
+            id: `upload-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            mode: mode,
+            count: items.length,
+            status: 'pending'
+        };
+        const newHistory = [upload, ...uploadHistory].slice(0, 20); // Keep last 20
+        setUploadHistory(newHistory);
+        localStorage.setItem(ENRICHER_UPLOADS_KEY, JSON.stringify(newHistory));
+        return upload.id;
+    };
+
+    // Update upload history status
+    const updateUploadStatus = (uploadId, status, successCount = 0) => {
+        setUploadHistory(prev => {
+            const updated = prev.map(u =>
+                u.id === uploadId ? { ...u, status, successCount, completedAt: new Date().toISOString() } : u
+            );
+            localStorage.setItem(ENRICHER_UPLOADS_KEY, JSON.stringify(updated));
+            return updated;
+        });
+    };
+
     // Clear saved results
     const clearResults = () => {
         if (confirm('Weet je zeker dat je alle resultaten wilt wissen?')) {
             setEmails([]);
             setResults([]);
             localStorage.removeItem(ENRICHER_RESULTS_KEY);
+            localStorage.removeItem(ENRICHER_PROCESSING_KEY);
+        }
+    };
+
+    // Clear upload history
+    const clearHistory = () => {
+        if (confirm('Weet je zeker dat je de upload geschiedenis wilt wissen?')) {
+            setUploadHistory([]);
+            localStorage.removeItem(ENRICHER_UPLOADS_KEY);
         }
     };
 
@@ -200,16 +280,78 @@ export default function EnrichPage() {
         }
     };
 
-    // Start Bulk Processing
+    // Resume background processing (called on page load if there was unfinished work)
+    const resumeBackgroundProcessing = async (state) => {
+        setProcessing(true);
+        processingAbortRef.current = false;
+
+        const startIndex = state.progress?.current || 0;
+        const emailsToProcess = state.emails;
+        const total = emailsToProcess.length;
+
+        const newResults = [...(state.results || [])];
+
+        for (let i = startIndex; i < total; i++) {
+            if (processingAbortRef.current) break;
+
+            const item = emailsToProcess[i];
+            if (item.status === 'success' || item.status === 'failed') continue; // Skip already processed
+
+            setEmails(prev => prev.map((e, idx) => idx === i ? { ...e, status: 'processing' } : e));
+
+            const result = await processLead(item);
+            newResults.push(result);
+
+            const updatedEmails = emailsToProcess.map((e, idx) => idx === i ? {
+                ...e,
+                status: result.success ? 'success' : (result.status === 'no_email_found' ? 'no_email' : 'failed'),
+                email: result.email || e.email,
+                data: result.data || null,
+                websiteUrl: result.websiteUrl,
+                message: result.message
+            } : e);
+
+            setEmails(updatedEmails);
+            setProgress({ current: i + 1, total });
+
+            // Save state for background persistence
+            localStorage.setItem(ENRICHER_PROCESSING_KEY, JSON.stringify({
+                isProcessing: true,
+                emails: updatedEmails,
+                results: newResults,
+                progress: { current: i + 1, total },
+                uploadId: state.uploadId
+            }));
+        }
+
+        setResults(newResults);
+        setProcessing(false);
+        setIsBackgroundProcessing(false);
+        localStorage.removeItem(ENRICHER_PROCESSING_KEY);
+
+        // Update upload history
+        if (state.uploadId) {
+            const successCount = newResults.filter(r => r.success).length;
+            updateUploadStatus(state.uploadId, 'completed', successCount);
+        }
+    };
+
+    // Start Bulk Processing with background support
     const handleProcessAll = async () => {
         setProcessing(true);
+        processingAbortRef.current = false;
         const total = emails.length;
         setProgress({ current: 0, total });
+
+        // Save upload to history
+        const uploadId = saveUploadToHistory(emails, inputMode);
 
         const newResults = [];
 
         // Process one by one (to avoid rate limits and nice UI updates)
         for (let i = 0; i < total; i++) {
+            if (processingAbortRef.current) break;
+
             const item = emails[i];
 
             // Update status in UI immediately
@@ -220,46 +362,91 @@ export default function EnrichPage() {
             newResults.push(result);
 
             // Update status with result - track ook gevonden email bij domain mode
-            setEmails(prev => prev.map((e, idx) => idx === i ? {
+            const updatedEmails = emails.map((e, idx) => idx === i ? {
                 ...e,
                 status: result.success ? 'success' : (result.status === 'no_email_found' ? 'no_email' : 'failed'),
                 email: result.email || e.email, // Update met gevonden email
                 data: result.data || null,
                 websiteUrl: result.websiteUrl,
                 message: result.message
-            } : e));
+            } : e);
 
+            setEmails(updatedEmails);
             setProgress({ current: i + 1, total });
+
+            // Save state for background persistence (can resume if page is left)
+            localStorage.setItem(ENRICHER_PROCESSING_KEY, JSON.stringify({
+                isProcessing: true,
+                emails: updatedEmails,
+                results: newResults,
+                progress: { current: i + 1, total },
+                uploadId
+            }));
         }
 
         setResults(newResults);
         setProcessing(false);
+        localStorage.removeItem(ENRICHER_PROCESSING_KEY);
+
+        // Update upload history status
+        const successCount = newResults.filter(r => r.success).length;
+        updateUploadStatus(uploadId, processingAbortRef.current ? 'paused' : 'completed', successCount);
     };
 
-    // CSV Export Helper
-    const downloadCSV = (data, filename) => {
-        // Definieer kolommen - output voor batch import
-        const headers = [
-            'Email',
-            'Bedrijfsnaam',
-            'Website',
-            'Contactpersoon',
-            'Tone'
-        ];
+    // Stop processing (pause)
+    const handleStopProcessing = () => {
+        processingAbortRef.current = true;
+    };
 
-        const csvContent = [
-            headers.join(','),
-            ...data.map(item => {
-                const d = item.data || {};
-                return [
-                    `"${item.email || ''}"`,
-                    `"${d.companyName || ''}"`,
-                    `"${item.websiteUrl || ''}"`,
-                    `"${d.contactPerson || ''}"`,
-                    `""` // Tone leeg laten zodat gebruiker zelf kan kiezen
-                ].join(',');
-            })
-        ].join('\n');
+    // Start campaign from enriched results
+    const handleStartCampaign = () => {
+        const successfulLeads = emails.filter(e => e.status === 'success' && e.email && e.data);
+
+        if (successfulLeads.length === 0) {
+            alert('Geen verrijkte leads beschikbaar. Voer eerst een verrijking uit.');
+            return;
+        }
+
+        const activeSmtps = getActiveSmtpAccounts();
+        if (activeSmtps.length === 0) {
+            alert('Geen actieve SMTP accounts. Ga naar Settings om er een toe te voegen.');
+            return;
+        }
+
+        // Create campaign
+        const campaign = createCampaign({
+            name: campaignName || `Enricher Campagne ${new Date().toLocaleDateString('nl-NL')}`,
+            smtpMode: 'rotate',
+            smtpAccountIds: selectedSmtpIds.length > 0 ? selectedSmtpIds : activeSmtps.map(s => s.id),
+            emailTone: defaultTone,
+            emails: successfulLeads.map(lead => ({
+                email: lead.email,
+                businessName: lead.data?.companyName || '',
+                websiteUrl: lead.websiteUrl || '',
+                contactPerson: lead.data?.contactPerson || '',
+                knowledgeFile: lead.data?.knowledgeFile || ''
+            }))
+        });
+
+        setShowCampaignModal(false);
+
+        if (useGodMode) {
+            // Redirect to batch page with godmode trigger
+            router.push(`/batch?campaign=${campaign.id}&godmode=true`);
+        } else {
+            // Redirect to campaign dashboard
+            router.push(`/campaigns?id=${campaign.id}`);
+        }
+    };
+
+    // CSV Export Helper en handlers (ongewijzigd, alleen logica)
+    const downloadCSV = (data, filename) => {
+        // ... (existing helper logic)
+        const headers = ['Email', 'Bedrijfsnaam', 'Website', 'Contactpersoon', 'Tone'];
+        const csvContent = [headers.join(','), ...data.map(item => {
+            const d = item.data || {};
+            return [`"${item.email || ''}"`, `"${d.companyName || ''}"`, `"${item.websiteUrl || ''}"`, `"${d.contactPerson || ''}"`, `""`].join(',');
+        })].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -274,13 +461,11 @@ export default function EnrichPage() {
         }
     };
 
-    // Export handlers
     const exportAll = () => downloadCSV(results, 'alle_leads_verrijkt.csv');
     const exportSuccess = () => downloadCSV(results.filter(r => r.success), 'leads_met_email.csv');
     const exportFailed = () => downloadCSV(results.filter(r => !r.success && r.status !== 'no_email_found'), 'leads_zonder_website.csv');
     const exportNoEmail = () => downloadCSV(results.filter(r => r.status === 'no_email_found'), 'leads_geen_email.csv');
 
-    // Group results by knowledge file
     const getResultsByKnowledgeFile = () => {
         const grouped = {};
         results.filter(r => r.success).forEach(item => {
@@ -291,32 +476,21 @@ export default function EnrichPage() {
         return grouped;
     };
 
-    // Export specific knowledge file
     const exportByKnowledgeFile = (knowledgeFile) => {
         const filtered = results.filter(r => r.success && (r.data?.knowledgeFile || 'overig.md') === knowledgeFile);
         const safeName = knowledgeFile.replace('.md', '').replace(/[^a-z0-9]/gi, '_');
         downloadCSV(filtered, `leads_${safeName}.csv`);
     };
 
-    // Copy to clipboard for specific knowledge file (for batch paste)
     const copyByKnowledgeFile = async (knowledgeFile) => {
         const filtered = results.filter(r => r.success && (r.data?.knowledgeFile || 'overig.md') === knowledgeFile);
-
-        // Format: email,bedrijfsnaam,website,contactpersoon,tone
         const textContent = filtered.map(item => {
             const d = item.data || {};
-            return [
-                item.email || '',
-                d.companyName || '',
-                item.websiteUrl || '',
-                d.contactPerson || '',
-                '' // Tone leeg
-            ].join(',');
+            return [item.email || '', d.companyName || '', item.websiteUrl || '', d.contactPerson || '', ''].join(',');
         }).join('\n');
-
         try {
             await navigator.clipboard.writeText(textContent);
-            alert(`✅ ${filtered.length} leads gekopieerd naar klembord!\n\nPlak direct in Batch Modus.`);
+            alert(`✅ ${filtered.length} leads gekopieerd naar klembord!`);
         } catch (err) {
             console.error('Clipboard error:', err);
             alert('❌ Kopiëren mislukt. Probeer opnieuw.');
@@ -332,695 +506,284 @@ export default function EnrichPage() {
         success: results.filter(r => r.success).length,
         noWebsite: results.filter(r => r.status === 'website_unreachable' || r.status === 'no_website_generic').length,
         deadDomains: results.filter(r => r.status === 'domain_dead').length,
-        noEmailFound: results.filter(r => r.status === 'no_email_found').length // 🆕 Domeinen zonder gevonden email
+        noEmailFound: results.filter(r => r.status === 'no_email_found').length
     };
 
     return (
-        <>
-            <Head>
-                <title>Lead Verrijker | SKYE Mail Agent</title>
-                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-            </Head>
-
-            <div className="app">
-                <div className="bg-gradient"></div>
-
-                <Navigation />
+        <Layout title="Lead Verrijker | SKYE Mail Agent">
+            <div className="page-container">
                 <div className="page-header">
-                    <div className="logo">
-                        <span className="logo-icon">🕵️</span>
-                        <span className="logo-text">Lead Verrijker</span>
-                    </div>
+                    <h1 className="page-title"><span className="text-gradient">Lead</span> Verrijker</h1>
+                    <p className="page-subtitle">Verrijk email lijsten of zoek emails op basis van domeinnamen.</p>
                 </div>
 
-                <main className="main">
-                    <div className="container">
+                <div className="glass-card mb-8">
+                    <div className="flex flex-col md:flex-row gap-8">
+                        {/* Left: Input Selection */}
+                        <div className="flex-1">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span className="badge badge-info">1</span> Input Type
+                            </h3>
 
-                        {/* Control Panel */}
-                        <div className="card control-panel">
-                            <div className="upload-section">
-                                <h3>1. Input Type</h3>
-
-                                {/* 🆕 INPUT MODE TOGGLE */}
-                                <div className="mode-toggle">
-                                    <button
-                                        className={`mode-btn ${inputMode === 'email' ? 'active' : ''}`}
-                                        onClick={() => { setInputMode('email'); setEmails([]); setResults([]); }}
-                                    >
-                                        📧 Emails
-                                    </button>
-                                    <button
-                                        className={`mode-btn ${inputMode === 'domain' ? 'active' : ''}`}
-                                        onClick={() => { setInputMode('domain'); setEmails([]); setResults([]); }}
-                                    >
-                                        🌐 Domeinen
-                                    </button>
-                                </div>
-
-                                <p className="mode-hint">
-                                    {inputMode === 'domain'
-                                        ? '💡 Bij domeinen zoeken we automatisch emails op de website'
-                                        : 'Upload emails om bedrijfsinfo te verrijken'}
-                                </p>
-
-                                <div className="input-toggle">
-                                    <button
-                                        className={`toggle-btn ${!showTextInput ? 'active' : ''}`}
-                                        onClick={() => setShowTextInput(false)}
-                                    >
-                                        📂 Bestand
-                                    </button>
-                                    <button
-                                        className={`toggle-btn ${showTextInput ? 'active' : ''}`}
-                                        onClick={() => setShowTextInput(true)}
-                                    >
-                                        📋 Tekst Plakken
-                                    </button>
-                                </div>
-
-                                {!showTextInput ? (
-                                    <label className="btn btn-secondary file-btn full-width">
-                                        📂 Selecteer {inputMode === 'domain' ? 'domein' : 'email'} bestand
-                                        <input type="file" accept=".csv,.txt" onChange={handleCSVImport} ref={fileInputRef} hidden />
-                                    </label>
-                                ) : (
-                                    <div className="text-paste-area">
-                                        <textarea
-                                            value={pasteText}
-                                            onChange={(e) => setPasteText(e.target.value)}
-                                            placeholder={inputMode === 'domain'
-                                                ? "Plak hier je domeinen...\n\nVoorbeeld:\nbedrijf1.be\nbedrijf2.nl\nhttps://www.bedrijf3.com"
-                                                : "Plak hier je emails...\n\nVoorbeeld:\ninfo@bedrijf1.be\ncontact@bedrijf2.be\n\nOf CSV formaat:\nemail;naam;website"}
-                                            className="paste-textarea"
-                                            rows={6}
-                                        />
-                                        <button
-                                            onClick={handleTextPaste}
-                                            className="btn btn-primary full-width"
-                                            disabled={!pasteText.trim()}
-                                        >
-                                            ✅ {inputMode === 'domain' ? 'Domeinen' : 'Emails'} Verwerken
-                                        </button>
-                                    </div>
-                                )}
-
-                                {emails.length > 0 && (
-                                    <div className="stats-preview">
-                                        ✅ {emails.length} {inputMode === 'domain' ? 'domeinen' : 'emails'} gevonden
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="action-section">
-                                <h3>2. Start Verrijking</h3>
+                            <div className="flex gap-4 mb-4">
                                 <button
-                                    onClick={handleProcessAll}
-                                    disabled={processing || emails.length === 0}
-                                    className="btn btn-primary full-width"
+                                    className={`premium-button flex-1 ${inputMode !== 'email' ? 'secondary' : ''}`}
+                                    onClick={() => { setInputMode('email'); setEmails([]); setResults([]); }}
                                 >
-                                    {processing ? `Bezig... ${progress.current}/${progress.total}` : '🚀 Start Scrapen'}
+                                    📧 Emails
+                                </button>
+                                <button
+                                    className={`premium-button flex-1 ${inputMode !== 'domain' ? 'secondary' : ''}`}
+                                    onClick={() => { setInputMode('domain'); setEmails([]); setResults([]); }}
+                                >
+                                    🌐 Domeinen
                                 </button>
                             </div>
 
-                            <div className="export-section">
-                                <h3>3. Download Resultaat</h3>
-                                <div className="btn-group">
-                                    <button onClick={exportSuccess} disabled={stats.success === 0} className="btn btn-success">
-                                        ✅ {inputMode === 'domain' ? 'Met Email' : 'Met Website'} ({stats.success})
-                                    </button>
-                                    {inputMode === 'domain' && stats.noEmailFound > 0 && (
-                                        <button onClick={exportNoEmail} className="btn btn-warning">
-                                            ⚠️ Geen Email Gevonden ({stats.noEmailFound})
-                                        </button>
-                                    )}
-                                    <button onClick={exportFailed} disabled={stats.noWebsite === 0} className="btn btn-error">
-                                        ❌ Website Onbereikbaar ({stats.noWebsite})
-                                    </button>
-                                    <button onClick={exportAll} disabled={results.length === 0} className="btn btn-outline">
-                                        📥 Download Alles
-                                    </button>
-                                    <button onClick={clearResults} disabled={emails.length === 0} className="btn btn-danger">
-                                        🗑️ Wissen
+                            <div className="input-toggle-inline glass-bg-dark rounded-lg p-1 flex mb-4">
+                                <button
+                                    className={`toggle-btn w-1/2 text-center py-2 rounded ${!showTextInput ? 'bg-white/10 font-bold' : 'text-muted'}`}
+                                    onClick={() => setShowTextInput(false)}
+                                >
+                                    📂 Bestand
+                                </button>
+                                <button
+                                    className={`toggle-btn w-1/2 text-center py-2 rounded ${showTextInput ? 'bg-white/10 font-bold' : 'text-muted'}`}
+                                    onClick={() => setShowTextInput(true)}
+                                >
+                                    📋 Plakken
+                                </button>
+                            </div>
+
+                            {!showTextInput ? (
+                                <label className="premium-button secondary cursor-pointer w-full justify-center py-8 border-dashed">
+                                    <div className="flex flex-col items-center gap-2">
+                                        <span className="text-2xl">📂</span>
+                                        <span>Klik om {inputMode === 'domain' ? 'domein' : 'email'} bestand te kiezen</span>
+                                        <span className="text-xs text-muted">(.csv of .txt)</span>
+                                    </div>
+                                    <input type="file" accept=".csv,.txt" onChange={handleCSVImport} ref={fileInputRef} hidden />
+                                </label>
+                            ) : (
+                                <div className="space-y-4">
+                                    <textarea
+                                        value={pasteText}
+                                        onChange={(e) => setPasteText(e.target.value)}
+                                        placeholder={inputMode === 'domain'
+                                            ? "Plak hier je domeinen...\n\nVoorbeeld:\nbedrijf1.be\nbedrijf2.nl"
+                                            : "Plak hier je emails...\n\nVoorbeeld:\ninfo@bedrijf1.be\ncontact@bedrijf2.be"}
+                                        className="premium-input"
+                                        rows={6}
+                                    />
+                                    <button
+                                        onClick={handleTextPaste}
+                                        className="premium-button w-full"
+                                        disabled={!pasteText.trim()}
+                                    >
+                                        ✅ {inputMode === 'domain' ? 'Domeinen' : 'Emails'} Verwerken
                                     </button>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
-                        {/* Per Knowledge File Export */}
-                        {knowledgeFiles.length > 0 && (
-                            <div className="card niche-exports">
-                                <h3>📁 Per Niche Exporteren</h3>
-                                <p className="niche-hint">Kopieer of download leads gegroepeerd per branche</p>
-                                <div className="niche-grid">
-                                    {knowledgeFiles.map(kf => (
-                                        <div key={kf} className="niche-card">
-                                            <div className="niche-header">
-                                                <span className="niche-name">{kf.replace('.md', '')}</span>
-                                                <span className="niche-count">{groupedResults[kf].length} leads</span>
-                                            </div>
-                                            <div className="niche-actions">
-                                                <button
-                                                    onClick={() => copyByKnowledgeFile(kf)}
-                                                    className="btn btn-copy"
-                                                    title="Kopieer voor Batch Modus"
-                                                >
-                                                    📋 Kopieer
+                        {/* Middle: Action */}
+                        <div className="flex-1 border-l border-glass pl-8">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span className="badge badge-info">2</span> Verrijken
+                            </h3>
+
+                            <div className="text-center py-6">
+                                {emails.length === 0 ? (
+                                    <div className="opacity-50">
+                                        <div className="text-4xl mb-2">📥</div>
+                                        <p>Wacht op input...</p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="text-2xl font-bold mb-2">{emails.length}</div>
+                                        <div className="text-sm text-secondary mb-6">{inputMode === 'domain' ? 'domeinen' : 'emails'} klaar voor verrijking</div>
+
+                                        {!processing ? (
+                                            <button
+                                                onClick={handleProcessAll}
+                                                className="premium-button w-full text-lg py-4"
+                                            >
+                                                🚀 Start Scrapen
+                                            </button>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                <div className="flex justify-between text-sm">
+                                                    <span>Bezig met verwerken...</span>
+                                                    <span>{progress.current}/{progress.total}</span>
+                                                </div>
+                                                <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                                                    <div className="h-full bg-accent transition-all duration-300" style={{ width: `${(progress.current / progress.total) * 100}%` }} />
+                                                </div>
+                                                <button onClick={handleStopProcessing} className="premium-button secondary w-full border-warning text-warning">
+                                                    ⏸️ Pauzeren
                                                 </button>
-                                                <button
-                                                    onClick={() => exportByKnowledgeFile(kf)}
-                                                    className="btn btn-download"
-                                                    title="Download als CSV"
-                                                >
-                                                    💾 CSV
-                                                </button>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                        )}
 
-                        {/* Pagination Controls */}
-                        {emails.length > 0 && (
-                            <div className="pagination-controls">
-                                <div className="pagination-info">
-                                    <span>Weergave: {startIndex + 1} - {Math.min(endIndex, emails.length)} van {emails.length} {inputMode === 'domain' ? 'domeinen' : 'emails'}</span>
-                                </div>
-
-                                <div className="pagination-per-page">
-                                    <label>Toon per pagina:</label>
-                                    <select
-                                        value={itemsPerPage}
-                                        onChange={(e) => {
-                                            setItemsPerPage(Number(e.target.value));
-                                            setCurrentPage(1);
-                                        }}
-                                        className="input-select"
-                                        disabled={processing}
-                                    >
-                                        <option value={10}>10</option>
-                                        <option value={25}>25</option>
-                                        <option value={50}>50</option>
-                                        <option value={100}>100</option>
-                                        <option value={250}>250</option>
-                                        <option value={500}>500</option>
-                                    </select>
-                                </div>
-
-                                {totalPages > 1 && (
-                                    <div className="pagination-nav">
-                                        <button
-                                            onClick={() => setCurrentPage(1)}
-                                            disabled={currentPage === 1 || processing}
-                                            className="btn-page"
-                                        >
-                                            ««
-                                        </button>
-                                        <button
-                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            disabled={currentPage === 1 || processing}
-                                            className="btn-page"
-                                        >
-                                            «
-                                        </button>
-                                        <span className="page-indicator">
-                                            Pagina {currentPage} van {totalPages}
-                                        </span>
-                                        <button
-                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            disabled={currentPage === totalPages || processing}
-                                            className="btn-page"
-                                        >
-                                            »
-                                        </button>
-                                        <button
-                                            onClick={() => setCurrentPage(totalPages)}
-                                            disabled={currentPage === totalPages || processing}
-                                            className="btn-page"
-                                        >
-                                            »»
-                                        </button>
+                                        {stats.success > 0 && !processing && (
+                                            <button
+                                                onClick={() => setShowCampaignModal(true)}
+                                                className="premium-button w-full mt-4 bg-gradient-to-r from-purple-600 to-blue-600"
+                                            >
+                                                🔥 Start Campagne ({stats.success})
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </div>
 
-                        {/* Results Grid */}
-                        <div className="results-container">
+                        {/* Right: Export */}
+                        <div className="flex-1 border-l border-glass pl-8">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span className="badge badge-info">3</span> Resultaat
+                            </h3>
+
+                            <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                    <div className="p-2 bg-white/5 rounded text-center">
+                                        <div className="text-xl font-bold text-success">{stats.success}</div>
+                                        <div className="text-xs text-secondary">Succes</div>
+                                    </div>
+                                    <div className="p-2 bg-white/5 rounded text-center">
+                                        <div className="text-xl font-bold text-error">{stats.noWebsite + stats.deadDomains + stats.noEmailFound}</div>
+                                        <div className="text-xs text-secondary">Mislukt</div>
+                                    </div>
+                                </div>
+
+                                <button onClick={exportSuccess} disabled={stats.success === 0} className="premium-button secondary w-full justify-between text-success border-success/30">
+                                    <span>✅ {inputMode === 'domain' ? 'Met Email' : 'Met Website'}</span>
+                                    <span>({stats.success})</span>
+                                </button>
+
+                                <button onClick={exportFailed} disabled={stats.noWebsite === 0} className="premium-button secondary w-full justify-between text-error border-error/30">
+                                    <span>❌ Onbereikbaar</span>
+                                    <span>({stats.noWebsite})</span>
+                                </button>
+
+                                <button onClick={exportAll} disabled={results.length === 0} className="premium-button secondary w-full justify-between">
+                                    <span>📥 Alles CSV</span>
+                                    <span>({results.length})</span>
+                                </button>
+
+                                <button onClick={clearResults} disabled={emails.length === 0} className="premium-button secondary w-full text-muted hover:text-error text-sm">
+                                    🗑️ Alles Wissen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Niche Exports */}
+                {knowledgeFiles.length > 0 && (
+                    <div className="glass-card mb-8">
+                        <h3 className="text-lg font-bold mb-4">📁 Exporteren per Niche</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {knowledgeFiles.map(kf => (
+                                <div key={kf} className="p-4 rounded-lg bg-white/5 border border-glass flex justify-between items-center group hover:bg-white/10 transition-colors">
+                                    <div className="overflow-hidden">
+                                        <div className="font-bold truncate" title={kf}>{kf.replace('.md', '')}</div>
+                                        <div className="text-xs text-secondary">{groupedResults[kf].length} leads</div>
+                                    </div>
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => copyByKnowledgeFile(kf)} className="p-2 text-muted hover:text-white" title="Kopieer">📋</button>
+                                        <button onClick={() => exportByKnowledgeFile(kf)} className="p-2 text-muted hover:text-accent" title="Download">💾</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Results Grid - Using CSS Grid for masonry-like feel */}
+                {emails.length > 0 && (
+                    <>
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="text-sm text-secondary">
+                                Pagina {currentPage} van {totalPages}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="premium-button secondary py-1 px-3 text-xs"
+                                >
+                                    « Vorige
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="premium-button secondary py-1 px-3 text-xs"
+                                >
+                                    Volgende »
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {paginatedEmails.map((item, index) => {
                                 const actualIndex = startIndex + index;
                                 return (
-                                    <div key={actualIndex} className={`lead-item ${item.status}`}>
-                                        <div className="lead-index">{actualIndex + 1}</div>
-                                        <div className="lead-status-icon">
-                                            {item.status === 'pending' && '⏳'}
-                                            {item.status === 'processing' && '🔄'}
-                                            {item.status === 'success' && '✅'}
-                                            {item.status === 'no_email' && '⚠️'}
-                                            {item.status === 'failed' && '❌'}
+                                    <div key={actualIndex} className={`glass-card p-4 flex flex-col h-full relative overflow-hidden ${item.status === 'success' ? 'border-success/30' : item.status === 'failed' ? 'border-error/30' : ''}`}>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="badge secondary text-xs font-mono">{actualIndex + 1}</span>
+                                            {item.status === 'processing' && <span className="spinner text-accent">⚙️</span>}
+                                            {item.status === 'success' && <span className="text-lg">✅</span>}
+                                            {item.status === 'failed' && <span className="text-lg">❌</span>}
+                                            {item.status === 'no_email' && <span className="text-lg">⚠️</span>}
                                         </div>
-                                        <div className="lead-info">
-                                            {/* Toon domein of email afhankelijk van mode */}
-                                            <div className="lead-email">
-                                                {item.domain && !item.email && <span className="domain-tag">🌐 </span>}
-                                                {item.email || item.domain}
+
+                                        <div className="flex-1 space-y-2 mb-3">
+                                            <div>
+                                                <div className="text-xs text-secondary uppercase">Email / Input</div>
+                                                <div className="font-bold truncate" title={item.email || item.domain}>{item.email || item.domain}</div>
                                             </div>
 
-                                            {/* Als we in domain mode een email gevonden hebben, toon die */}
-                                            {item.domain && item.email && (
-                                                <div className="found-email">📧 {item.email}</div>
-                                            )}
-
-                                            {item.data && (
-                                                <div className="lead-meta">
-                                                    <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="lead-link">{item.data.companyName}</a>
-                                                    {item.data.contactPerson && <span className="lead-city">👤 {item.data.contactPerson}</span>}
-                                                    {item.data.allEmails && item.data.allEmails.length > 1 && (
-                                                        <span className="lead-emails-count">+{item.data.allEmails.length - 1} meer emails</span>
-                                                    )}
+                                            {item.data?.companyName && (
+                                                <div>
+                                                    <div className="text-xs text-secondary uppercase">Bedrijf</div>
+                                                    <div>{item.data.companyName}</div>
                                                 </div>
                                             )}
-                                            {item.message && <div className="lead-error">{item.message}</div>}
+
+                                            {item.data?.knowledgeFile && (
+                                                <div>
+                                                    <div className="text-xs text-secondary uppercase">Niche</div>
+                                                    <div className="text-accent text-sm">{item.data.knowledgeFile.replace('.md', '')}</div>
+                                                </div>
+                                            )}
+
+                                            {item.message && item.status !== 'success' && (
+                                                <div className="p-2 rounded bg-white/5 text-xs text-secondary mt-2">
+                                                    {item.message}
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {item.websiteUrl && (
+                                            <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline flex items-center gap-1 mt-auto">
+                                                🔗 {item.websiteUrl}
+                                            </a>
+                                        )}
+
+                                        {/* Status Bar */}
+                                        <div className={`absolute bottom-0 left-0 h-1 w-full ${item.status === 'success' ? 'bg-success' : item.status === 'failed' ? 'bg-error' : item.status === 'processing' ? 'bg-accent' : 'bg-transparent'}`} />
                                     </div>
                                 );
                             })}
                         </div>
-
-                    </div>
-                </main>
+                    </>
+                )}
             </div>
 
             <style jsx>{`
-        :root {
-          --bg-primary: #f8fafc;
-          --text-primary: #1e293b;
-          --accent: #3b82f6;
-          --success: #22c55e;
-          --error: #ef4444;
-        }
-
-        .app {
-          min-height: 100vh;
-          background: var(--bg-primary);
-          font-family: 'Inter', sans-serif;
-          color: var(--text-primary);
-        }
-
-        .page-header {
-          padding: 20px 24px;
-          background: white;
-          border-bottom: 1px solid #e2e8f0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .logo { font-size: 1.25rem; font-weight: 700; display: flex; gap: 8px; }
-
-        .container {
-          max-width: 800px;
-          margin: 40px auto;
-          padding: 0 20px;
-        }
-
-        .card {
-          background: white;
-          border-radius: 12px;
-          padding: 24px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          margin-bottom: 30px;
-        }
-
-        .control-panel {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 24px;
-        }
-
-        h3 { font-size: 0.9rem; text-transform: uppercase; color: #64748b; margin-bottom: 12px; }
-        p { font-size: 0.9rem; color: #94a3b8; margin-bottom: 16px; }
-
-        .btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 10px 16px;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          border: none;
-          gap: 8px;
-          font-size: 0.9rem;
-          transition: all 0.2s;
-        }
-
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .full-width { width: 100%; }
-
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-secondary { background: white; border: 1px solid #cbd5e1; color: #475569; }
-        .btn-success { background: var(--success); color: white; }
-        .btn-error { background: 'white'; border: 1px solid var(--error); color: var(--error); }
-        .btn-outline { background: white; border: 1px solid #cbd5e1; color: #475569; }
-        .btn-danger { background: var(--error); color: white; }
-
-        .btn-group { display: flex; flex-direction: column; gap: 8px; }
-
-        /* Pagination Styles */
-        .pagination-controls {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 16px;
-          padding: 16px 20px;
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
-          margin-bottom: 16px;
-        }
-
-        .pagination-info {
-          font-size: 13px;
-          color: #64748b;
-          font-weight: 500;
-        }
-
-        .pagination-per-page {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .pagination-per-page label {
-          font-size: 13px;
-          color: #64748b;
-          white-space: nowrap;
-        }
-
-        .input-select {
-          padding: 6px 10px;
-          border: 1px solid #cbd5e1;
-          border-radius: 6px;
-          font-size: 13px;
-          background: white;
-          cursor: pointer;
-        }
-
-        .input-select:focus {
-          outline: none;
-          border-color: var(--accent);
-        }
-
-        .pagination-nav {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .btn-page {
-          padding: 6px 12px;
-          font-size: 13px;
-          min-width: 36px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn-page:hover:not(:disabled) {
-          background: #e2e8f0;
-          border-color: #cbd5e1;
-        }
-
-        .btn-page:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .page-indicator {
-          font-size: 13px;
-          color: #1e293b;
-          font-weight: 500;
-          padding: 0 12px;
-          white-space: nowrap;
-        }
-
-        .lead-index {
-          font-size: 12px;
-          color: #94a3b8;
-          min-width: 28px;
-          text-align: center;
-          font-weight: 500;
-        }
-
-        .results-container {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .lead-item {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          padding: 12px 16px;
-          background: white;
-          border-radius: 8px;
-          border: 1px solid #e2e8f0;
-        }
-
-        .lead-item.success { border-left: 4px solid var(--success); }
-        .lead-item.failed { border-left: 4px solid var(--error); }
-        .lead-item.processing { border-left: 4px solid var(--accent); opacity: 0.8; }
-        .lead-item.no_email { border-left: 4px solid #f59e0b; background: #fffbeb; }
-
-        .lead-status-icon { font-size: 1.2rem; }
-        
-        .lead-info { flex: 1; }
-        .lead-email { font-weight: 500; }
-        
-        .lead-meta { margin-top: 4px; display: flex; gap: 12px; font-size: 0.85rem; align-items: center; flex-wrap: wrap; }
-        .lead-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-        .lead-badge { background: #f1f5f9; padding: 2px 8px; border-radius: 4px; color: #475569; }
-        .lead-city { color: #64748b; }
-        
-        .lead-error { font-size: 0.8em; color: var(--error); margin-top: 2px; }
-        
-        /* 🆕 Domain mode styles */
-        .found-email { font-size: 0.85rem; color: var(--success); font-weight: 500; margin-top: 2px; }
-        .domain-tag { opacity: 0.7; }
-        .lead-emails-count { 
-          font-size: 0.75rem; 
-          background: #dbeafe; 
-          color: #1d4ed8; 
-          padding: 2px 6px; 
-          border-radius: 4px; 
-        }
-        
-        .mode-toggle {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-        
-        .mode-btn {
-          flex: 1;
-          padding: 12px 16px;
-          border: 2px solid #e2e8f0;
-          background: white;
-          border-radius: 10px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-          color: #64748b;
-        }
-        
-        .mode-btn:hover {
-          border-color: var(--accent);
-          color: var(--accent);
-        }
-        
-        .mode-btn.active {
-          border-color: var(--accent);
-          background: #eff6ff;
-          color: var(--accent);
-        }
-        
-        .mode-hint {
-          font-size: 0.8rem !important;
-          color: #64748b !important;
-          padding: 8px;
-          background: #f8fafc;
-          border-radius: 6px;
-          margin-bottom: 12px !important;
-        }
-        
-        .btn-warning {
-          background: #fef3c7;
-          border: 1px solid #f59e0b;
-          color: #b45309;
-        }
-        
-        .btn-warning:hover {
-          background: #fde68a;
-        }
-
-        .input-toggle {
-          display: flex;
-          gap: 4px;
-          margin-bottom: 12px;
-          background: #f1f5f9;
-          padding: 4px;
-          border-radius: 8px;
-        }
-
-        .toggle-btn {
-          flex: 1;
-          padding: 8px 12px;
-          border: none;
-          background: transparent;
-          border-radius: 6px;
-          font-size: 0.85rem;
-          font-weight: 500;
-          cursor: pointer;
-          color: #64748b;
-          transition: all 0.2s;
-        }
-
-        .toggle-btn.active {
-          background: white;
-          color: var(--accent);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .text-paste-area {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .paste-textarea {
-          width: 100%;
-          padding: 12px;
-          border: 1px solid #cbd5e1;
-          border-radius: 8px;
-          font-family: 'Inter', sans-serif;
-          font-size: 0.9rem;
-          resize: vertical;
-          min-height: 120px;
-        }
-
-        .paste-textarea:focus {
-          outline: none;
-          border-color: var(--accent);
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        .stats-preview {
-          margin-top: 12px;
-          padding: 8px 12px;
-          background: rgba(34, 197, 94, 0.1);
-          border-radius: 6px;
-          color: var(--success);
-          font-weight: 500;
-          font-size: 0.9rem;
-        }
-
-        .niche-exports {
-          margin-bottom: 24px;
-        }
-
-        .niche-exports h3 {
-          font-size: 1rem;
-          margin-bottom: 4px;
-        }
-
-        .niche-hint {
-          font-size: 0.85rem;
-          color: #64748b;
-          margin-bottom: 16px;
-        }
-
-        .niche-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 12px;
-        }
-
-        .niche-card {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 10px;
-          padding: 14px;
-          transition: all 0.2s;
-        }
-
-        .niche-card:hover {
-          border-color: var(--accent);
-          background: #f0f9ff;
-        }
-
-        .niche-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .niche-name {
-          font-weight: 600;
-          font-size: 0.9rem;
-          color: #1e293b;
-        }
-
-        .niche-count {
-          font-size: 0.75rem;
-          background: var(--accent);
-          color: white;
-          padding: 2px 8px;
-          border-radius: 10px;
-          font-weight: 600;
-        }
-
-        .niche-actions {
-          display: flex;
-          gap: 8px;
-        }
-
-        .btn-copy, .btn-download {
-          flex: 1;
-          padding: 8px 10px;
-          font-size: 0.8rem;
-          border-radius: 6px;
-          border: 1px solid #cbd5e1;
-          background: white;
-          cursor: pointer;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-
-        .btn-copy:hover {
-          background: #dbeafe;
-          border-color: #3b82f6;
-          color: #1d4ed8;
-        }
-
-        .btn-download:hover {
-          background: #dcfce7;
-          border-color: #22c55e;
-          color: #16a34a;
-        }
-
-        @media (max-width: 768px) {
-          .control-panel { grid-template-columns: 1fr; }
-          .niche-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
-        </>
+               .input-toggle-inline { display: flex; }
+            `}</style>
+        </Layout>
     );
 }

@@ -1,11 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import Navigation from '../components/Navigation';
+import Layout from '../components/Layout';
 
-import godmode from '../utils/godmode';
-import { createCampaign, getActiveSmtpAccounts, getSmtpAccounts } from "../utils/campaignStore";
+import { createCampaign, getActiveSmtpAccounts, getSmtpAccounts, saveSmtpAccounts } from "../utils/campaignStore";
 import { getWarmupSummary } from "../utils/warmupStore";
 
 export default function BatchPage() {
@@ -47,6 +45,9 @@ export default function BatchPage() {
         const data = await res.json();
         if (data.success) {
           setSmtpAccounts(data.accounts || []);
+          if (data.accounts) {
+            saveSmtpAccounts(data.accounts);
+          }
         }
       } catch (e) {
         console.error('Failed to load SMTP accounts:', e);
@@ -127,7 +128,6 @@ export default function BatchPage() {
   };
 
   // Shared function to parse leads from text/CSV
-  // Supports both manual input AND the enricher CSV format
   const parseLeadsFromText = (text) => {
     // Normalize line endings
     const normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -549,1737 +549,603 @@ export default function BatchPage() {
   };
 
   return (
-    <>
-      <Head>
-        <title>Batch Modus | SKYE Mail Agent</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      </Head>
-
-      <div className="app">
-        <div className="bg-gradient"></div>
-        <div className="bg-grid"></div>
-
-        <Navigation />
+    <Layout title="Batch Modus | SKYE Mail Agent">
+      <div className="page-container">
         {/* Page Header */}
-        <div className="page-header">
-          <div className="logo">
-            <span className="logo-icon">📦</span>
-            <span className="logo-text">Batch Modus</span>
+        <div className="page-header flex justify-between items-center">
+          <div>
+            <h1 className="page-title">
+              <span className="text-gradient">Batch</span> Modus
+            </h1>
+            <p className="page-subtitle">
+              Verstuur gepersonaliseerde emails naar een lijst van leads.
+            </p>
           </div>
-          <div className="lead-count">
+          <div className="badge badge-info">
             {leads.length} leads
           </div>
         </div>
 
-        <main className="main">
-          <div className="container">
-            {/* Actions Bar */}
-            <div className="actions-bar">
-              <button onClick={addLead} className="btn btn-secondary">
-                ➕ Lead Toevoegen
-              </button>
+        {/* Actions Bar */}
+        <div className="glass-card mb-4 actions-bar">
+          <div className="flex gap-4 items-center flex-wrap">
+            <button onClick={addLead} className="premium-button">
+              ➕ Lead Toevoegen
+            </button>
 
-              <div className="input-toggle-inline">
-                <button
-                  className={`toggle-btn ${!showTextInput ? 'active' : ''}`}
-                  onClick={() => setShowTextInput(false)}
-                >
-                  📄 CSV
-                </button>
-                <button
-                  className={`toggle-btn ${showTextInput ? 'active' : ''}`}
-                  onClick={() => setShowTextInput(true)}
-                >
-                  📋 Plakken
-                </button>
-              </div>
-
-              {!showTextInput && (
-                <label className="btn btn-secondary file-btn">
-                  📂 Bestand Kiezen
-                  <input
-                    type="file"
-                    accept=".csv,.txt"
-                    onChange={handleCSVImport}
-                    ref={fileInputRef}
-                    hidden
-                  />
-                </label>
-              )}
-
+            <div className="input-toggle-inline glass-bg-dark rounded-lg p-1 flex">
               <button
-                onClick={() => setShowSessionPrompt(!showSessionPrompt)}
-                className={`btn btn-secondary ${sessionPrompt.trim() ? 'has-content' : ''}`}
-                disabled={sending}
+                className={`toggle-btn ${!showTextInput ? 'active' : ''}`}
+                onClick={() => setShowTextInput(false)}
               >
-                🧠 {sessionPrompt.trim() ? 'AI Instructie ✓' : 'AI Instructie'}
+                📄 CSV
               </button>
-
               <button
-                onClick={handleSendAll}
-                disabled={sending || leads.length === 0}
-                className="btn btn-secondary"
+                className={`toggle-btn ${showTextInput ? 'active' : ''}`}
+                onClick={() => setShowTextInput(true)}
               >
-                {sending && sendMode === 'normal' ? `Versturen... (${progress.current}/${progress.total})` : '📧 Normaal'}
-              </button>
-
-              <button
-                onClick={() => setShowCampaignModal(true)}
-                disabled={sending || leads.length === 0}
-                className="btn btn-primary"
-              >
-                🚀 Campagne
-              </button>
-
-              <button
-                onClick={handleGodmode}
-                disabled={sending || leads.length === 0 || smtpAccounts.filter(a => a.active !== false).length === 0}
-                className="btn btn-godmode"
-              >
-                {sending && sendMode === 'godmode' ? `🔥 ${progress.current}/${progress.total}` : '🔥 GODMODE'}
+                📋 Plakken
               </button>
             </div>
 
-            {/* GODMODE Confirmation Dialog */}
-            {godmodeConfirm && godmodeStats && (
-              <div className="godmode-confirm">
-                <div className="godmode-warning">
-                  <span className="godmode-icon">🔥🔥🔥</span>
-                  <div className="godmode-title">GODMODE ACTIVEREN?</div>
-                  <div className="godmode-subtitle">
-                    Dit gaat <strong>{godmodeStats.emails}</strong> emails versturen via <strong>{godmodeStats.smtps}</strong> SMTP accounts
-                    in ~<strong>{godmodeStats.estimatedTime}</strong>
-                  </div>
-                  <div className="godmode-details">
-                    <div className="detail-item">⚡ 10+ parallel per SMTP</div>
-                    <div className="detail-item">🚫 Geen rate limiting</div>
-                    <div className="detail-item">💨 0 vertraging</div>
-                  </div>
-                  <div className="godmode-danger">
-                    ⚠️ WAARSCHUWING: Dit kan je SMTP reputatie beschadigen bij overmatig gebruik!
-                  </div>
-                  <div className="godmode-actions">
-                    <button onClick={() => setGodmodeConfirm(false)} className="btn btn-secondary">
-                      Annuleren
-                    </button>
-                    <button onClick={handleGodmode} className="btn btn-godmode-confirm">
-                      🔥 VUUR LOS!
-                    </button>
-                  </div>
-                </div>
-              </div>
+            {!showTextInput && (
+              <label className="premium-button secondary cursor-pointer">
+                📂 Bestand Kiezen
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleCSVImport}
+                  ref={fileInputRef}
+                  hidden
+                />
+              </label>
             )}
 
-            {/* Session Prompt - Extra AI instructies voor deze batch */}
-            {showSessionPrompt && (
-              <div className="session-prompt-section">
-                <div className="session-prompt-header">
-                  <span className="session-prompt-icon">🧠</span>
-                  <span className="session-prompt-title">Tijdelijke AI Instructie</span>
-                  <span className="session-prompt-hint">(alleen voor deze batch)</span>
-                </div>
-                <textarea
-                  value={sessionPrompt}
-                  onChange={(e) => setSessionPrompt(e.target.value)}
-                  placeholder="Geef extra context aan de AI voor deze batch...
+            <div className="flex-grow"></div>
 
-Voorbeelden:
-• Focus op onze nieuwe december korting (20% op alle diensten)
-• Vermeld dat we binnenkort in Antwerpen openen
-• Richt je op restaurants die nog geen online reserveersysteem hebben
-• Leg nadruk op de snelle doorlooptijd (binnen 2 weken live)"
-                  className="session-prompt-textarea"
-                  rows={4}
+            <button
+              onClick={() => setShowSessionPrompt(!showSessionPrompt)}
+              className={`premium-button secondary ${sessionPrompt.trim() ? 'border-accent' : ''}`}
+              disabled={sending}
+            >
+              🧠 {sessionPrompt.trim() ? 'AI Instructie ✓' : 'AI Instructie'}
+            </button>
+
+            <button
+              onClick={handleSendAll}
+              disabled={sending || leads.length === 0}
+              className="premium-button"
+            >
+              {sending && sendMode === 'normal' ? `Versturen... (${progress.current}/${progress.total})` : '📧 Normaal'}
+            </button>
+
+            <button
+              onClick={() => setShowCampaignModal(true)}
+              disabled={sending || leads.length === 0}
+              className="premium-button"
+            >
+              🚀 Campagne
+            </button>
+
+            <button
+              onClick={handleGodmode}
+              disabled={sending || leads.length === 0 || smtpAccounts.filter(a => a.active !== false).length === 0}
+              className="premium-button godmode-btn"
+            >
+              {sending && sendMode === 'godmode' ? `🔥 ${progress.current}/${progress.total}` : '🔥 GODMODE'}
+            </button>
+          </div>
+        </div>
+
+        {/* GODMODE Confirmation Dialog */}
+        {godmodeConfirm && godmodeStats && (
+          <div className="alert alert-error flex-col items-center text-center godmode-confirm">
+            <div className="text-4xl mb-2">🔥🔥🔥</div>
+            <h3 className="text-xl font-bold text-red-500 mb-2">GODMODE ACTIVEREN?</h3>
+            <p className="text-secondary mb-4">
+              Dit gaat <strong>{godmodeStats.emails}</strong> emails versturen via <strong>{godmodeStats.smtps}</strong> SMTP accounts
+              in ~<strong>{godmodeStats.estimatedTime}</strong>
+            </p>
+            <div className="flex gap-8 mb-4">
+              <span className="badge badge-error">⚡ 10+ parallel</span>
+              <span className="badge badge-error">🚫 Geen limits</span>
+              <span className="badge badge-error">💨 0 vertraging</span>
+            </div>
+            <p className="text-xs text-error mb-4">
+              ⚠️ WAARSCHUWING: Dit kan je SMTP reputatie beschadigen bij overmatig gebruik!
+            </p>
+            <div className="flex gap-4">
+              <button onClick={() => setGodmodeConfirm(false)} className="premium-button secondary">
+                Annuleren
+              </button>
+              <button onClick={handleGodmode} className="premium-button godmode-confirm-btn">
+                🔥 VUUR LOS!
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Session Prompt */}
+        {showSessionPrompt && (
+          <div className="glass-card mb-4 border-accent">
+            <div className="flex items-center gap-2 mb-2 text-accent">
+              <span>🧠</span>
+              <span className="font-bold">Tijdelijke AI Instructie</span>
+              <span className="text-xs opacity-70">(alleen voor deze batch)</span>
+            </div>
+            <textarea
+              value={sessionPrompt}
+              onChange={(e) => setSessionPrompt(e.target.value)}
+              placeholder="Geef extra context aan de AI voor deze batch... (bijv. focus op korting, nieuwe locatie, etc.)"
+              className="premium-input"
+              rows={3}
+              disabled={sending}
+            />
+          </div>
+        )}
+
+        {/* Text Paste Area */}
+        {showTextInput && (
+          <div className="glass-card mb-4">
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder="Plak hier je leads...&#10;&#10;Voorbeeld formaat:&#10;info@bedrijf.be, Bedrijf Naam, https://website.be, Jan"
+              className="premium-input mb-4"
+              rows={5}
+            />
+            <button
+              onClick={handleTextPaste}
+              className="premium-button"
+              disabled={!pasteText.trim()}
+            >
+              ✅ Leads Toevoegen
+            </button>
+          </div>
+        )}
+
+        {/* CSV Format Help */}
+        <div className="text-xs text-muted mb-6 px-4">
+          <strong>Formaat:</strong> email, bedrijfsnaam, website, contactpersoon (optioneel), tone (optioneel)
+        </div>
+
+        {/* Bulk Actions Toolbar */}
+        {leads.length > 0 && selectedLeads.size > 0 && !sending && (
+          <div className="glass-card p-3 mb-4 flex items-center justify-between sticky top-4 z-10 glass-bg-dark">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={leads.length > 0 && selectedLeads.size === leads.length}
+                  onChange={toggleAll}
+                  className="checkbox"
+                />
+                <span className="text-sm font-bold text-highlight">
+                  {selectedLeads.size} geselecteerd
+                </span>
+              </label>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-secondary">Zet stijl:</span>
+                <select
+                  onChange={(e) => bulkUpdateTone(e.target.value)}
+                  className="premium-input py-1 px-2 text-sm w-auto"
+                  value=""
+                >
+                  <option value="" disabled>Kies...</option>
+                  <option value="professional">💰 ROI Focus</option>
+                  <option value="casual">🎯 Value Drop</option>
+                  <option value="urgent">🔥 FOMO</option>
+                  <option value="friendly">🤝 Warm Direct</option>
+                  <option value="random">🎲 Willekeurig</option>
+                </select>
+              </div>
+              <button onClick={bulkRemove} className="text-error text-sm font-bold hover:underline">
+                🗑️ Verwijderen
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Bar */}
+        {sending && progress.total > 0 && (
+          <div className="glass-card mb-6">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="font-bold">📧 Emails versturen...</span>
+              <span>{Math.round((progress.current / progress.total) * 100)}%</span>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all duration-300"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Live Log Panel - GODMODE */}
+        {godmodeLogs.length > 0 && (
+          <div className="glass-card p-0 overflow-hidden mb-6 font-mono text-xs bg-[#0d1117]">
+            <div className="p-3 border-b border-glass flex justify-between items-center bg-secondary/50">
+              <span className="font-bold text-orange-400">🔥 GODMODE Live Log</span>
+              {!sending && (
+                <button
+                  className="text-muted hover:text-white"
+                  onClick={() => setGodmodeLogs([])}
+                >
+                  Wissen
+                </button>
+              )}
+            </div>
+            <div className="max-h-64 overflow-y-auto p-4 space-y-1">
+              {godmodeLogs.map((log, i) => (
+                <div key={i} className={`flex gap-3 ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : 'text-gray-400'}`}>
+                  <span className="opacity-50 min-w-[60px]">{log.timestamp}</span>
+                  <span className="flex-1">{log.message}</span>
+                  {log.details && <span className="text-xs opacity-50">{log.details}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Leads List */}
+        <div className="space-y-4">
+          {leads.length > 0 && (
+            <div className="flex justify-between items-center mb-2 px-2">
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={leads.length > 0 && selectedLeads.size === leads.length}
+                  onChange={toggleAll}
+                  className="checkbox"
                   disabled={sending}
                 />
-                {sessionPrompt.trim() && (
-                  <div className="session-prompt-status">
-                    ✅ Deze instructie wordt bij elke email meegestuurd
-                  </div>
-                )}
-              </div>
-            )}
+                Alles selecteren
+              </label>
 
-            {/* Text Paste Area */}
-            {showTextInput && (
-              <div className="paste-section">
-                <textarea
-                  value={pasteText}
-                  onChange={(e) => setPasteText(e.target.value)}
-                  placeholder="Plak hier je leads...&#10;&#10;Voorbeeld formaat:&#10;info@bedrijf.be, Bedrijf Naam, https://website.be, Jan&#10;contact@ander.be, Ander BV, https://ander.be"
-                  className="paste-textarea"
-                  rows={5}
-                />
-                <button
-                  onClick={handleTextPaste}
-                  className="btn btn-primary"
-                  disabled={!pasteText.trim()}
+              {/* Pagination Controls */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="premium-input py-1 px-2 text-xs w-auto"
+                  disabled={sending}
                 >
-                  ✅ Leads Toevoegen
-                </button>
-              </div>
-            )}
-
-            {/* CSV Format Help */}
-            <div className="csv-help">
-              <strong>Formaat:</strong> email, bedrijfsnaam, website, contactpersoon (optioneel), tone (optioneel) — <em>Ondersteunt komma, puntkomma en tab als scheidingsteken</em>
-            </div>
-
-            {/* Bulk Actions Toolbar */}
-            {leads.length > 0 && (
-              <div className={`bulk-toolbar ${selectedLeads.size > 0 ? 'active' : ''}`}>
-                <div className="bulk-selection">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={leads.length > 0 && selectedLeads.size === leads.length}
-                      onChange={toggleAll}
-                      className="checkbox"
-                      disabled={sending}
-                    />
-                    <span className="checkbox-text">
-                      {selectedLeads.size > 0 ? `${selectedLeads.size} geselecteerd` : 'Alles selecteren'}
-                    </span>
-                  </label>
-                </div>
-
-                {selectedLeads.size > 0 && !sending && (
-                  <div className="bulk-actions-group">
-                    <div className="bulk-action">
-                      <span className="action-label">Zet stijl:</span>
-                      <select
-                        onChange={(e) => bulkUpdateTone(e.target.value)}
-                        className="input select small"
-                        value=""
-                      >
-                        <option value="" disabled>Kies...</option>
-                        <option value="professional">💰 ROI Focus</option>
-                        <option value="casual">🎯 Value Drop</option>
-                        <option value="urgent">🔥 FOMO</option>
-                        <option value="friendly">🤝 Warm Direct</option>
-                        <option value="random">🎲 Willekeurig</option>
-                      </select>
-                    </div>
-                    <button onClick={bulkRemove} className="btn-danger-text">
-                      🗑️ Verwijderen
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Progress Bar - shown when sending */}
-            {sending && progress.total > 0 && (
-              <div className="progress-container">
-                <div className="progress-header">
-                  <span className="progress-title">📧 Emails versturen...</span>
-                  <span className="progress-count">{progress.current} van {progress.total}</span>
-                </div>
-                <div className="progress-bar-track">
-                  <div
-                    className="progress-bar-fill"
-                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                  />
-                </div>
-                <div className="progress-percentage">
-                  {Math.round((progress.current / progress.total) * 100)}% voltooid
-                </div>
-              </div>
-            )}
-
-            {/* Live Log Panel - GODMODE */}
-            {godmodeLogs.length > 0 && (
-              <div className="log-panel">
-                <div className="log-header">
-                  <span className="log-title">🔥 GODMODE Live Log</span>
-                  <span className="log-count">{godmodeLogs.length} events</span>
-                  {!sending && (
-                    <button
-                      className="log-clear"
-                      onClick={() => setGodmodeLogs([])}
-                    >
-                      Wissen
-                    </button>
-                  )}
-                </div>
-                <div className="log-body">
-                  {godmodeLogs.map((log, i) => (
-                    <div key={i} className={`log-entry log-${log.type}`}>
-                      <span className="log-time">{log.timestamp}</span>
-                      <span className="log-message">{log.message}</span>
-                      {log.details && <span className="log-details">{log.details}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pagination Controls */}
-            {leads.length > 0 && (
-              <div className="pagination-controls">
-                <div className="pagination-info">
-                  <span>Weergave: {startIndex + 1} - {Math.min(endIndex, leads.length)} van {leads.length} leads</span>
-                </div>
-
-                <div className="pagination-per-page">
-                  <label>Toon per pagina:</label>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1); // Reset to first page
-                    }}
-                    className="input select small"
-                    disabled={sending}
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={250}>250</option>
-                    <option value={500}>500</option>
-                  </select>
-                </div>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={250}>250</option>
+                  <option value={500}>500</option>
+                </select>
 
                 {totalPages > 1 && (
-                  <div className="pagination-nav">
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1 || sending}
-                      className="btn btn-page"
-                    >
-                      ««
-                    </button>
+                  <div className="flex gap-1">
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1 || sending}
-                      className="btn btn-page"
+                      className="premium-button secondary py-1 px-2 text-xs"
                     >
                       «
                     </button>
-                    <span className="page-indicator">
-                      Pagina {currentPage} van {totalPages}
+                    <span className="text-xs px-2 py-1 text-secondary">
+                      {currentPage} / {totalPages}
                     </span>
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages || sending}
-                      className="btn btn-page"
+                      className="premium-button secondary py-1 px-2 text-xs"
                     >
                       »
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages || sending}
-                      className="btn btn-page"
-                    >
-                      »»
                     </button>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Leads List */}
-            <div className="leads-list">
-              {leads.length === 0 ? (
-                <div className="empty-state">
-                  <span className="empty-icon">📭</span>
-                  <p>Nog geen leads toegevoegd</p>
-                  <p className="empty-hint">Klik op "Lead Toevoegen" of importeer een CSV</p>
-                </div>
-              ) : (
-                paginatedLeads.map((lead, index) => {
-                  const actualIndex = startIndex + index;
-                  const status = leadStatuses[lead.id];
-                  const isProcessing = status === 'processing';
-                  const isSent = status === 'sent';
-                  const isFailed = status === 'failed';
-                  const isWaiting = status === 'waiting';
+          {leads.length === 0 ? (
+            <div className="glass-card text-center py-12">
+              <div className="text-4xl mb-4">📭</div>
+              <p className="text-secondary mb-2">Nog geen leads toegevoegd</p>
+              <button onClick={addLead} className="text-accent hover:underline text-sm">
+                Klik om een lead toe te voegen
+              </button>
+            </div>
+          ) : (
+            paginatedLeads.map((lead, index) => {
+              const actualIndex = startIndex + index;
+              const status = leadStatuses[lead.id];
 
-                  return (
-                    <div
-                      key={lead.id}
-                      className={`lead-card ${selectedLeads.has(lead.id) ? 'selected' : ''} ${status ? `status-${status}` : ''}`}
-                    >
-                      {/* Status Indicator */}
-                      {sending && status && (
-                        <div className={`lead-status-badge ${status}`}>
-                          {isWaiting && <span className="status-icon">⏳</span>}
-                          {isProcessing && <span className="status-icon spinner">⚙️</span>}
-                          {isSent && <span className="status-icon">✅</span>}
-                          {isFailed && <span className="status-icon">❌</span>}
-                        </div>
-                      )}
+              return (
+                <div
+                  key={lead.id}
+                  className={`glass-card p-4 transition-all ${selectedLeads.has(lead.id) ? 'border-accent bg-accent/5' : ''} ${status === 'processed' ? 'opacity-50' : ''}`}
+                >
+                  <div className="flex gap-4 items-center flex-wrap md:flex-nowrap">
+                    <div className="flex items-center gap-3 min-w-[40px]">
+                      <input
+                        type="checkbox"
+                        checked={selectedLeads.has(lead.id)}
+                        onChange={() => toggleLead(lead.id)}
+                        className="checkbox"
+                        disabled={sending}
+                      />
+                      <span className="text-xs text-muted font-mono">{actualIndex + 1}</span>
+                    </div>
 
-                      <div className="lead-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedLeads.has(lead.id)}
-                          onChange={() => toggleLead(lead.id)}
-                          className="checkbox"
-                          disabled={sending}
-                        />
-                      </div>
-                      <div className={`lead-number ${status || ''}`}>{actualIndex + 1}</div>
-                      <div className="lead-fields">
-                        <input
-                          type="email"
-                          placeholder="email@bedrijf.be"
-                          value={lead.toEmail}
-                          onChange={(e) => updateLead(lead.id, 'toEmail', e.target.value)}
-                          className="input"
-                          disabled={sending}
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-grow">
+                      <input
+                        type="email"
+                        placeholder="email@bedrijf.be"
+                        value={lead.toEmail}
+                        onChange={(e) => updateLead(lead.id, 'toEmail', e.target.value)}
+                        className="premium-input py-2 text-sm"
+                        disabled={sending}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Bedrijfsnaam"
+                        value={lead.businessName}
+                        onChange={(e) => updateLead(lead.id, 'businessName', e.target.value)}
+                        className="premium-input py-2 text-sm"
+                        disabled={sending}
+                      />
+                      <input
+                        type="url"
+                        placeholder="website.be"
+                        value={lead.websiteUrl}
+                        onChange={(e) => updateLead(lead.id, 'websiteUrl', e.target.value)}
+                        className="premium-input py-2 text-sm"
+                        disabled={sending}
+                      />
+                      <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="Bedrijfsnaam"
-                          value={lead.businessName}
-                          onChange={(e) => updateLead(lead.id, 'businessName', e.target.value)}
-                          className="input"
-                          disabled={sending}
-                        />
-                        <input
-                          type="url"
-                          placeholder="https://website.be"
-                          value={lead.websiteUrl}
-                          onChange={(e) => updateLead(lead.id, 'websiteUrl', e.target.value)}
-                          className="input"
-                          disabled={sending}
-                        />
-                        <input
-                          type="text"
-                          placeholder="Contactpersoon"
+                          placeholder="Naam (opt)"
                           value={lead.contactPerson}
                           onChange={(e) => updateLead(lead.id, 'contactPerson', e.target.value)}
-                          className="input small"
+                          className="premium-input py-2 text-sm flex-1"
                           disabled={sending}
                         />
                         <select
                           value={lead.emailTone}
                           onChange={(e) => updateLead(lead.id, 'emailTone', e.target.value)}
-                          className="input select"
+                          className="premium-input py-2 text-sm w-24"
                           disabled={sending}
                         >
-                          <option value="professional">💰 ROI Focus</option>
-                          <option value="casual">🎯 Value Drop</option>
-                          <option value="urgent">🔥 FOMO</option>
-                          <option value="friendly">🤝 Warm Direct</option>
-                          <option value="random">🎲 Willekeurig</option>
+                          <option value="professional">💰</option>
+                          <option value="casual">🎯</option>
+                          <option value="urgent">🔥</option>
+                          <option value="friendly">🤝</option>
+                          <option value="random">🎲</option>
                         </select>
-                        {lead.knowledgeFile && (
-                          <span className="knowledge-badge" title="Knowledge file voor deze niche">
-                            📁 {lead.knowledgeFile}
-                          </span>
-                        )}
                       </div>
-                      {!sending && (
+                    </div>
+
+                    {/* Status/Actions */}
+                    <div className="w-[40px] flex justify-center">
+                      {sending && status ? (
+                        <div title={status}>
+                          {status === 'waiting' && <span className="text-lg">⏳</span>}
+                          {status === 'processing' && <div className="spinner text-accent">⚙️</div>}
+                          {status === 'sent' && <span className="text-lg">✅</span>}
+                          {status === 'failed' && <span className="text-lg">❌</span>}
+                        </div>
+                      ) : (
                         <button
                           onClick={() => removeLead(lead.id)}
-                          className="remove-btn"
+                          className="text-muted hover:text-error transition-colors text-lg"
+                          title="Verwijder"
                         >
                           ✕
                         </button>
                       )}
                     </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="alert alert-error">
-                <span>❌</span> {error}
-              </div>
-            )}
-
-            {/* Results */}
-            {results && (
-              <div className="results-card">
-                <h3>📊 Resultaten</h3>
-                <div className="results-summary">
-                  <div className="result-stat success">
-                    <span className="stat-num">{results.sent}</span>
-                    <span className="stat-label">Verstuurd</span>
                   </div>
-                  <div className="result-stat error">
-                    <span className="stat-num">{results.failed}</span>
-                    <span className="stat-label">Mislukt</span>
-                  </div>
-                </div>
-                <div className="results-details">
-                  {results.details.map((d, i) => (
-                    <div key={i} className={`result-item ${d.status}`}>
-                      <span className="result-icon">{d.status === 'sent' ? '✅' : '❌'}</span>
-                      <span className="result-business">{d.business}</span>
-                      <span className="result-email">{d.email}</span>
+                  {lead.knowledgeFile && (
+                    <div className="mt-2 ml-10 text-xs text-purple-400">
+                      📁 Knowledge: {lead.knowledgeFile}
                     </div>
-                  ))}
+                  )}
                 </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Results Summary */}
+        {results && (
+          <div className="glass-card mt-8">
+            <h3 className="text-xl font-bold mb-4">📊 Resultaten</h3>
+            <div className="flex gap-8 mb-4">
+              <div className="text-success">
+                <div className="text-2xl font-bold">{results.sent}</div>
+                <div className="text-sm">Verstuurd</div>
               </div>
-            )}
-          </div>
-        </main>
-
-        {/* Campaign Modal */}
-        {showCampaignModal && (
-          <div className="modal-overlay" onClick={() => setShowCampaignModal(false)}>
-            <div className="modal campaign-modal" onClick={e => e.stopPropagation()}>
-              <h2>🚀 Nieuwe Campagne</h2>
-
-              <div className="form-group">
-                <label>Campagne Naam</label>
-                <input
-                  type="text"
-                  value={campaignName}
-                  onChange={e => setCampaignName(e.target.value)}
-                  placeholder={`Campagne ${new Date().toLocaleDateString('nl-NL')}`}
-                  className="input"
-                />
+              <div className="text-error">
+                <div className="text-2xl font-bold">{results.failed}</div>
+                <div className="text-sm">Mislukt</div>
               </div>
-
-              <div className="form-group">
-                <label>SMTP Account(s) *</label>
-                {smtpAccounts.length === 0 ? (
-                  <div className="no-smtp-warning">
-                    ⚠️ Geen SMTP accounts geconfigureerd.{' '}
-                    <Link href="/settings">Voeg er een toe →</Link>
-                  </div>
-                ) : (
-                  <div className="smtp-list">
-                    {smtpAccounts.filter(a => a.active).map(account => (
-                      <label key={account.id} className="smtp-option">
-                        <input
-                          type="checkbox"
-                          checked={selectedSmtpIds.includes(account.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedSmtpIds([...selectedSmtpIds, account.id]);
-                            } else {
-                              setSelectedSmtpIds(selectedSmtpIds.filter(id => id !== account.id));
-                            }
-                          }}
-                        />
-                        <span className="smtp-name">{account.name || account.user}</span>
-                        <span className="smtp-host">{account.host}</span>
-                        {(() => {
-                          const ws = getWarmupSummary(account.id);
-                          if (!ws.enabled) return null;
-                          return (
-                            <span className={`smtp-warmup ${ws.remaining === 0 ? 'at-limit' : ''}`}>
-                              🔥 {ws.remaining} over
-                            </span>
-                          );
-                        })()}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedSmtpIds.length > 1 && (
-                <div className="form-group">
-                  <label>SMTP Modus</label>
-                  <div className="radio-group">
-                    <label className="radio-option">
-                      <input
-                        type="radio"
-                        value="rotate"
-                        checked={smtpMode === 'rotate'}
-                        onChange={() => setSmtpMode('rotate')}
-                      />
-                      🔄 Roteren (afwisselen tussen accounts)
-                    </label>
-                    <label className="radio-option">
-                      <input
-                        type="radio"
-                        value="single"
-                        checked={smtpMode === 'single'}
-                        onChange={() => setSmtpMode('single')}
-                      />
-                      1️⃣ Eerste account gebruiken
-                    </label>
-                  </div>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {results.details.map((d, i) => (
+                <div key={i} className={`flex items-center gap-3 text-sm p-2 rounded ${d.status === 'sent' ? 'bg-success/10' : 'bg-error/10'}`}>
+                  <span>{d.status === 'sent' ? '✅' : '❌'}</span>
+                  <span className="font-bold">{d.business}</span>
+                  <span className="opacity-70">{d.email}</span>
                 </div>
-              )}
-
-              <div className="form-group">
-                <label>Standaard Stijl</label>
-                <select
-                  value={defaultTone}
-                  onChange={e => setDefaultTone(e.target.value)}
-                  className="input select"
-                >
-                  <option value="professional">💰 ROI Focus</option>
-                  <option value="casual">🎯 Value Drop</option>
-                  <option value="urgent">🔥 FOMO</option>
-                  <option value="friendly">🤝 Warm Direct</option>
-                  <option value="random">🎲 Willekeurig per email</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="toggle-option">
-                  <input
-                    type="checkbox"
-                    checked={verifyDomains}
-                    onChange={(e) => setVerifyDomains(e.target.checked)}
-                  />
-                  <span>🔍 Domein verificatie (check-host.net)</span>
-                </label>
-                <small className="toggle-hint">
-                  Controleert of de website bereikbaar is voordat de email wordt opgesteld
-                </small>
-              </div>
-
-              <div className="campaign-summary">
-                <span>📧 {leads.filter(l => l.toEmail && l.businessName && l.websiteUrl).length} emails</span>
-                <span>📡 {selectedSmtpIds.length} SMTP account(s)</span>
-                {verifyDomains && <span>🔍 Verificatie aan</span>}
-              </div>
-
-              {error && (
-                <div className="modal-error">❌ {error}</div>
-              )}
-
-              <div className="modal-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setShowCampaignModal(false)}
-                >
-                  Annuleren
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleStartCampaign}
-                  disabled={selectedSmtpIds.length === 0}
-                >
-                  🚀 Start Campagne
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         )}
+
       </div>
 
+      {/* Campaign Modal */}
+      {showCampaignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCampaignModal(false)}>
+          <div className="glass-card w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-6">🚀 Nieuwe Campagne</h2>
+
+            <div className="input-group">
+              <label className="input-label">Campagne Naam</label>
+              <input
+                type="text"
+                value={campaignName}
+                onChange={e => setCampaignName(e.target.value)}
+                placeholder={`Campagne ${new Date().toLocaleDateString('nl-NL')}`}
+                className="premium-input"
+              />
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">SMTP Account(s) *</label>
+              {smtpAccounts.length === 0 ? (
+                <div className="badge badge-warning">
+                  ⚠️ Geen accounts config. <Link href="/settings" className="underline">Settings</Link>
+                </div>
+              ) : (
+                <div className="max-h-40 overflow-y-auto space-y-2 p-2 border border-glass rounded-lg">
+                  {smtpAccounts.filter(a => a.active).map(account => (
+                    <label key={account.id} className="flex items-center gap-3 p-2 hover:bg-white/5 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedSmtpIds.includes(account.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSmtpIds([...selectedSmtpIds, account.id]);
+                          } else {
+                            setSelectedSmtpIds(selectedSmtpIds.filter(id => id !== account.id));
+                          }
+                        }}
+                        className="checkbox"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-bold">{account.name || account.user}</div>
+                        <div className="text-xs text-muted">{account.host}</div>
+                      </div>
+                      {(() => {
+                        const ws = getWarmupSummary(account.id);
+                        if (!ws.enabled) return null;
+                        return (
+                          <span className={`badge badge-warning text-xs ${ws.remaining === 0 ? 'opacity-50' : ''}`}>
+                            🔥 {ws.remaining}
+                          </span>
+                        );
+                      })()}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedSmtpIds.length > 1 && (
+              <div className="input-group">
+                <label className="input-label">SMTP Modus</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="rotate"
+                      checked={smtpMode === 'rotate'}
+                      onChange={() => setSmtpMode('rotate')}
+                    />
+                    <span className="text-sm">🔄 Roteren</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="single"
+                      checked={smtpMode === 'single'}
+                      onChange={() => setSmtpMode('single')}
+                    />
+                    <span className="text-sm">1️⃣ Eerste account</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="input-group">
+              <label className="input-label">Standaard Stijl</label>
+              <select
+                value={defaultTone}
+                onChange={e => setDefaultTone(e.target.value)}
+                className="premium-input"
+              >
+                <option value="professional">💰 ROI Focus</option>
+                <option value="casual">🎯 Value Drop</option>
+                <option value="urgent">🔥 FOMO</option>
+                <option value="friendly">🤝 Warm Direct</option>
+                <option value="random">🎲 Willekeurig</option>
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={verifyDomains}
+                  onChange={(e) => setVerifyDomains(e.target.checked)}
+                />
+                <span className="text-sm font-bold">🔍 Domein verificatie</span>
+              </label>
+              <p className="text-xs text-muted ml-5">Check of website bereikbaar is voor verzending</p>
+            </div>
+
+            <div className="flex justify-between items-center text-sm text-secondary mb-6 p-3 rounded bg-secondary/30">
+              <span>📧 {leads.filter(l => l.toEmail && l.businessName && l.websiteUrl).length} emails</span>
+              <span>📡 {selectedSmtpIds.length} accounts</span>
+            </div>
+
+            {error && <div className="alert alert-error mb-4">{error}</div>}
+
+            <div className="flex gap-4">
+              <button
+                className="premium-button secondary flex-1"
+                onClick={() => setShowCampaignModal(false)}
+              >
+                Annuleren
+              </button>
+              <button
+                className="premium-button flex-1"
+                onClick={handleStartCampaign}
+                disabled={selectedSmtpIds.length === 0}
+              >
+                🚀 Start Campagne
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
-        :root {
-          --bg-primary: #f8fafc;
-          --bg-secondary: #ffffff;
-          --bg-card: rgba(255, 255, 255, 0.95);
-          --border-color: rgba(0, 0, 0, 0.1);
-          --text-primary: #1a1a2e;
-          --text-secondary: #4a5568;
-          --text-muted: #718096;
-          --accent-primary: #0066cc;
-          --accent-secondary: #00a67e;
-          --accent-gradient: linear-gradient(135deg, #0066cc, #00a67e);
-          --font-sans: 'Inter', sans-serif;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .app {
-          min-height: 100vh;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-          font-family: var(--font-sans);
-          position: relative;
-        }
-
-        .bg-gradient {
-          position: fixed;
-          inset: 0;
-          background: 
-            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 102, 204, 0.08), transparent),
-            radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 166, 126, 0.06), transparent);
-          pointer-events: none;
-        }
-
-        .bg-grid {
-          position: fixed;
-          inset: 0;
-          background-image: 
-            linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
-          background-size: 60px 60px;
-          pointer-events: none;
-        }
-
-        .header {
-          position: relative;
-          z-index: 10;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 20px 24px;
-          border-bottom: 1px solid var(--border-color);
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(10px);
-        }
-
-        .back-link {
-          color: var(--text-secondary);
-          text-decoration: none;
-          font-size: 14px;
-          transition: color 0.2s;
-        }
-
-        .back-link:hover { color: var(--accent-primary); }
-
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .logo-icon { font-size: 24px; }
-        .logo-text { font-size: 18px; font-weight: 600; }
-
-        .lead-count {
-          font-size: 14px;
-          color: var(--accent-primary);
-          font-weight: 600;
-        }
-
-        .main {
-          position: relative;
-          z-index: 1;
-          padding: 24px;
-        }
-
-        .container {
-          max-width: 900px;
-          margin: 0 auto;
-        }
-
-        .actions-bar {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-primary {
-          background: var(--accent-gradient);
-          color: #ffffff;
-        }
-
-        .btn-secondary {
-          background: #ffffff;
-          color: var(--text-primary);
-          border: 1px solid var(--border-color);
-        }
-
-        .btn-secondary:hover {
-          background: #f8fafc;
-          border-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-godmode {
-          background: linear-gradient(135deg, #f97316, #dc2626, #f97316);
-          background-size: 200% 200%;
-          animation: fire-gradient 2s ease infinite;
-          color: white;
-          font-weight: 700;
-          border: none;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-          box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
-        }
-
-        .btn-godmode:hover:not(:disabled) {
-          transform: translateY(-2px) scale(1.02);
-          box-shadow: 0 6px 20px rgba(220, 38, 38, 0.5);
-        }
-
-        .btn-godmode-confirm {
-          background: linear-gradient(135deg, #dc2626, #991b1b);
-          color: white;
-          font-weight: 700;
-          font-size: 16px;
-          padding: 14px 28px;
-          animation: pulse-fire 1s ease-in-out infinite;
-        }
-
-        @keyframes fire-gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        @keyframes pulse-fire {
-          0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }
-          50% { transform: scale(1.02); box-shadow: 0 6px 25px rgba(220, 38, 38, 0.6); }
-        }
-
-        .godmode-confirm {
-          background: rgba(220, 38, 38, 0.05);
-          border: 2px solid #dc2626;
-          border-radius: 16px;
-          padding: 24px;
-          margin-bottom: 20px;
-          animation: shake 0.5s ease;
-        }
-
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          20%, 60% { transform: translateX(-5px); }
-          40%, 80% { transform: translateX(5px); }
-        }
-
-        .godmode-warning {
-          text-align: center;
-        }
-
-        .godmode-icon {
-          font-size: 48px;
-          display: block;
-          margin-bottom: 12px;
-        }
-
-        .godmode-title {
-          font-size: 24px;
-          font-weight: 800;
-          color: #dc2626;
-          margin-bottom: 8px;
-        }
-
-        .godmode-subtitle {
-          font-size: 14px;
-          color: var(--text-secondary);
-          margin-bottom: 16px;
-        }
-
-        .godmode-details {
-          display: flex;
-          justify-content: center;
-          gap: 24px;
-          margin-bottom: 16px;
-        }
-
-        .detail-item {
-          font-size: 13px;
-          color: var(--text-primary);
-          font-weight: 500;
-        }
-
-        .godmode-danger {
-          background: rgba(220, 38, 38, 0.1);
-          color: #dc2626;
-          padding: 12px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 20px;
-        }
-
-        .godmode-actions {
-          display: flex;
-          justify-content: center;
-          gap: 12px;
-        }
-
-        /* Live Log Panel */
-        .log-panel {
-          background: #0d1117;
-          border: 1px solid #30363d;
-          border-radius: 12px;
-          margin-bottom: 20px;
-          overflow: hidden;
-          font-family: 'JetBrains Mono', monospace;
-        }
-
-        .log-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 16px;
-          background: #161b22;
-          border-bottom: 1px solid #30363d;
-        }
-
-        .log-title {
-          font-weight: 600;
-          color: #f97316;
-        }
-
-        .log-count {
-          font-size: 12px;
-          color: #8b949e;
-          margin-left: auto;
-        }
-
-        .log-clear {
-          padding: 4px 12px;
-          background: rgba(255,255,255,0.1);
-          border: 1px solid #30363d;
-          border-radius: 6px;
-          color: #8b949e;
-          font-size: 12px;
-          cursor: pointer;
-        }
-
-        .log-clear:hover {
-          background: rgba(255,255,255,0.15);
-          color: #fff;
-        }
-
-        .log-body {
-          max-height: 300px;
-          overflow-y: auto;
-          padding: 8px 0;
-        }
-
-        .log-entry {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 4px 16px;
-          font-size: 12px;
-          line-height: 1.4;
-        }
-
-        .log-time {
-          color: #6e7681;
-          min-width: 65px;
-        }
-
-        .log-message {
-          color: #c9d1d9;
-          flex: 1;
-        }
-
-        .log-details {
-          color: #8b949e;
-          font-size: 11px;
-        }
-
-        .log-system .log-message { color: #f97316; font-weight: 600; }
-        .log-smtp .log-message { color: #58a6ff; }
-        .log-send .log-message { color: #a5d6ff; }
-        .log-success .log-message { color: #3fb950; }
-        .log-error .log-message { color: #f85149; }
-        .log-info .log-message { color: #8b949e; }
-
-        .file-btn { position: relative; }
-
-        .csv-help {
-          font-size: 12px;
-          color: var(--text-secondary);
-          margin-bottom: 24px;
-          padding: 12px 16px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-        }
-
-        .input-toggle-inline {
-          display: flex;
-          gap: 2px;
-          background: #f1f5f9;
-          padding: 3px;
-          border-radius: 8px;
-        }
-
         .toggle-btn {
-          padding: 8px 14px;
-          border: none;
-          background: transparent;
+          padding: 6px 12px;
           border-radius: 6px;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          color: #64748b;
+          font-size: 0.85rem;
+          color: var(--text-muted);
           transition: all 0.2s;
         }
-
         .toggle-btn.active {
-          background: white;
-          color: var(--accent-primary);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .paste-section {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 16px;
-          align-items: flex-start;
-        }
-
-        .paste-textarea {
-          flex: 1;
-          padding: 12px;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          font-family: var(--font-sans);
-          font-size: 13px;
-          resize: vertical;
-          min-height: 100px;
-          background: #ffffff;
-        }
-
-        .paste-textarea:focus {
-          outline: none;
-          border-color: var(--accent-primary);
-          box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
-        }
-
-        /* Session Prompt Styles */
-        .session-prompt-section {
-          margin-bottom: 16px;
-          background: linear-gradient(135deg, #f3e8ff 0%, #fae8ff 50%, #fdf4ff 100%);
-          border: 1px solid #d8b4fe;
-          border-radius: 12px;
-          padding: 16px;
-        }
-
-        .session-prompt-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-
-        .session-prompt-icon {
-          font-size: 20px;
-        }
-
-        .session-prompt-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #7c3aed;
-        }
-
-        .session-prompt-hint {
-          font-size: 12px;
-          color: #a855f7;
-          font-style: italic;
-        }
-
-        .session-prompt-textarea {
-          width: 100%;
-          padding: 12px;
-          border: 1px solid #d8b4fe;
-          border-radius: 8px;
-          font-family: var(--font-sans);
-          font-size: 13px;
-          resize: vertical;
-          min-height: 80px;
-          background: rgba(255, 255, 255, 0.8);
-          color: #581c87;
-        }
-
-        .session-prompt-textarea:focus {
-          outline: none;
-          border-color: #a855f7;
-          box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
-          background: #ffffff;
-        }
-
-        .session-prompt-textarea::placeholder {
-          color: #a78bfa;
-        }
-
-        .session-prompt-status {
-          margin-top: 10px;
-          font-size: 12px;
-          color: #16a34a;
-          font-weight: 500;
-        }
-
-        .btn.has-content {
-          background: linear-gradient(135deg, #f3e8ff, #fae8ff);
-          border-color: #d8b4fe;
-          color: #7c3aed;
-        }
-
-        .btn.has-content:hover {
-          background: linear-gradient(135deg, #ede9fe, #f5d0fe);
-        }
-
-        /* Pagination Styles */
-        .pagination-controls {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 16px;
-          padding: 16px 20px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          margin-bottom: 16px;
-        }
-
-        .pagination-info {
-          font-size: 13px;
-          color: var(--text-secondary);
-          font-weight: 500;
-        }
-
-        .pagination-per-page {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .pagination-per-page label {
-          font-size: 13px;
-          color: var(--text-secondary);
-          white-space: nowrap;
-        }
-
-        .pagination-nav {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .btn-page {
-          padding: 6px 12px;
-          font-size: 13px;
-          min-width: 36px;
-          background: #f8fafc;
-          border: 1px solid var(--border-color);
-          border-radius: 6px;
-          font-weight: 600;
-        }
-
-        .btn-page:hover:not(:disabled) {
-          background: #e2e8f0;
-          border-color: rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-page:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .page-indicator {
-          font-size: 13px;
-          color: var(--text-primary);
-          font-weight: 500;
-          padding: 0 12px;
-          white-space: nowrap;
-        }
-
-        .leads-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          color: var(--text-muted);
-        }
-
-        .empty-icon { font-size: 48px; display: block; margin-bottom: 16px; }
-        .empty-hint { font-size: 13px; margin-top: 8px; }
-
-        .lead-card {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 16px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-          transition: all 0.2s;
-        }
-
-        .lead-card.selected {
-          border-color: var(--accent-primary);
-          background: rgba(0, 102, 204, 0.02);
-        }
-
-        .lead-check {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .checkbox {
-          width: 18px;
-          height: 18px;
-          accent-color: var(--accent-primary);
-          cursor: pointer;
-        }
-
-        .bulk-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px 16px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 12px;
-          margin-bottom: 16px;
-        }
-
-        .bulk-toolbar.active {
-          border-color: var(--accent-primary);
-          background: rgba(0, 102, 204, 0.05);
-        }
-
-        .bulk-selection {
-          display: flex;
-          align-items: center;
-        }
-
-        .checkbox-label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--text-secondary);
-        }
-
-        .bulk-actions-group {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-        }
-
-        .bulk-action {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .action-label {
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
-
-        .btn-danger-text {
-          background: none;
-          border: none;
-          color: #ef4444;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          padding: 6px 12px;
-          border-radius: 6px;
-        }
-
-        .btn-danger-text:hover {
-          background: rgba(239, 68, 68, 0.1);
-        }
-
-        .lead-number {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #f1f5f9;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--text-muted);
-        }
-
-        .lead-fields {
-          flex: 1;
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .input {
-          flex: 1;
-          min-width: 150px;
-          padding: 10px 12px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          color: var(--text-primary);
-          font-size: 13px;
-        }
-
-        .input:focus {
-          outline: none;
-          border-color: var(--accent-primary);
-          box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
-        }
-
-        .input.small { min-width: 120px; max-width: 150px; }
-        .input.select { min-width: 140px; max-width: 160px; }
-
-        .knowledge-badge {
-          display: flex;
-          align-items: center;
-          padding: 6px 10px;
-          background: #f0f9ff;
-          border: 1px solid #bae6fd;
-          border-radius: 6px;
-          font-size: 11px;
-          font-weight: 500;
-          color: #0284c7;
-          white-space: nowrap;
-        }
-
-        .remove-btn {
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(239, 68, 68, 0.1);
-          border: none;
-          border-radius: 8px;
-          color: #ef4444;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .remove-btn:hover { background: rgba(239, 68, 68, 0.2); }
-
-        .alert {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-top: 20px;
-          padding: 14px 18px;
-          border-radius: 10px;
-        }
-
-        .alert-error {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          color: #dc2626;
-        }
-
-        .results-card {
-          margin-top: 24px;
-          padding: 24px;
-          background: #ffffff;
-          border: 1px solid var(--border-color);
-          border-radius: 16px;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-
-        .results-card h3 {
-          margin-bottom: 20px;
-          font-size: 16px;
-        }
-
-        .results-summary {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 20px;
-        }
-
-        .result-stat {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 16px 32px;
-          border-radius: 12px;
-        }
-
-        .result-stat.success { background: rgba(34, 197, 94, 0.15); }
-        .result-stat.error { background: rgba(239, 68, 68, 0.1); }
-
-        .stat-num { font-size: 28px; font-weight: 700; }
-        .result-stat.success .stat-num { color: #16a34a; }
-        .result-stat.error .stat-num { color: #dc2626; }
-
-        .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-
-        .results-details {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .result-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 10px 14px;
-          background: #f8fafc;
-          border-radius: 8px;
-          font-size: 13px;
-        }
-
-        .result-business { font-weight: 500; flex: 1; }
-        .result-email { color: var(--text-muted); }
-
-        /* Progress Bar Styles */
-        .progress-container {
-          margin-bottom: 20px;
-          padding: 20px;
-          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-          border: 1px solid #7dd3fc;
-          border-radius: 12px;
-        }
-
-        .progress-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .progress-title {
-          font-weight: 600;
-          font-size: 14px;
-          color: #0369a1;
-        }
-
-        .progress-count {
-          font-size: 13px;
-          color: #0284c7;
-          font-weight: 500;
-        }
-
-        .progress-bar-track {
-          height: 12px;
-          background: rgba(255, 255, 255, 0.8);
-          border-radius: 6px;
-          overflow: hidden;
-          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .progress-bar-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #0ea5e9, #06b6d4, #22c55e);
-          border-radius: 6px;
-          transition: width 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .progress-bar-fill::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-          animation: shimmer 1.5s infinite;
-        }
-
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-
-        .progress-percentage {
-          text-align: center;
-          margin-top: 8px;
-          font-size: 12px;
-          color: #0369a1;
-          font-weight: 500;
-        }
-
-        /* Lead Status Styles */
-        .lead-card.status-processing {
-          border-color: #0ea5e9;
-          background: rgba(14, 165, 233, 0.05);
-          box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
-        }
-
-        .lead-card.status-sent {
-          border-color: #22c55e;
-          background: rgba(34, 197, 94, 0.05);
-        }
-
-        .lead-card.status-failed {
-          border-color: #ef4444;
-          background: rgba(239, 68, 68, 0.05);
-        }
-
-        .lead-card.status-waiting {
-          opacity: 0.7;
-        }
-
-        .lead-status-badge {
-          position: absolute;
-          top: -8px;
-          right: -8px;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          font-size: 16px;
-          z-index: 10;
-          background: #ffffff;
-          border: 2px solid;
-        }
-
-        .lead-status-badge.waiting {
-          border-color: #94a3b8;
-        }
-
-        .lead-status-badge.processing {
-          border-color: #0ea5e9;
-          background: #f0f9ff;
-        }
-
-        .lead-status-badge.sent {
-          border-color: #22c55e;
-          background: #f0fdf4;
-        }
-
-        .lead-status-badge.failed {
-          border-color: #ef4444;
-          background: #fef2f2;
-        }
-
-        .lead-card {
-          position: relative;
-        }
-
-        .status-icon.spinner {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-
-        .lead-number.processing {
-          background: #0ea5e9;
+          background: rgba(255, 255, 255, 0.1);
           color: white;
-        }
-
-        .lead-number.sent {
-          background: #22c55e;
-          color: white;
-        }
-
-        .lead-number.failed {
-          background: #ef4444;
-          color: white;
-        }
-
-        .input:disabled {
-          background: #f8fafc;
-          cursor: not-allowed;
-          opacity: 0.7;
-        }
-
-        @media (max-width: 768px) {
-          .actions-bar { flex-wrap: wrap; }
-          .lead-fields { flex-direction: column; }
-          .input { min-width: 100% !important; max-width: 100% !important; }
-        }
-
-        /* Campaign Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 20px;
-        }
-
-        .modal {
-          background: white;
-          border-radius: 16px;
-          padding: 28px;
-          max-width: 500px;
-          width: 100%;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .modal h2 {
-          margin: 0 0 20px 0;
-          color: var(--text-primary);
-        }
-
-        .form-group {
-          margin-bottom: 18px;
-        }
-
-        .form-group label {
-          display: block;
-          margin-bottom: 6px;
-          font-weight: 500;
-          color: var(--text-secondary);
-          font-size: 14px;
-        }
-
-        .no-smtp-warning {
-          background: #fef3c7;
-          border: 1px solid #f59e0b;
-          border-radius: 8px;
-          padding: 12px;
-          color: #92400e;
-          font-size: 14px;
-        }
-
-        .no-smtp-warning a {
-          color: #0066cc;
-          text-decoration: none;
           font-weight: 600;
         }
-
-        .smtp-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+        .godmode-btn {
+          background: linear-gradient(135deg, #f97316, #dc2626);
+          animation: pulse-glow 2s infinite;
         }
-
-        .smtp-option {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px;
-          background: #f8fafc;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: border-color 0.2s;
-        }
-
-        .smtp-option:hover {
-          border-color: var(--accent-primary);
-        }
-
-        .smtp-option input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-        }
-
-        .smtp-name {
-          font-weight: 500;
-          color: var(--text-primary);
-        }
-
-        .smtp-host {
-          font-size: 12px;
-          color: var(--text-muted);
-          margin-left: auto;
-        }
-
-        .smtp-warmup {
-          font-size: 11px;
-          padding: 3px 8px;
-          border-radius: 12px;
-          background: #dcfce7;
-          color: #16a34a;
-          font-weight: 600;
-        }
-
-        .smtp-warmup.at-limit {
-          background: #fee2e2;
-          color: #dc2626;
-        }
-
-        .radio-group {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .radio-option {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 12px;
-          background: #f8fafc;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-
-        .radio-option input[type="radio"] {
-          width: 16px;
-          height: 16px;
-        }
-
-        .campaign-summary {
-          display: flex;
-          gap: 16px;
-          padding: 14px;
-          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-          border-radius: 10px;
-          margin-bottom: 18px;
-          font-weight: 500;
-          color: #0369a1;
-        }
-
-        .modal-error {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
-          padding: 12px;
-          border-radius: 8px;
-          margin-bottom: 16px;
-          font-size: 14px;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .modal-actions .btn {
-          flex: 1;
-        }
-
-        .toggle-option {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px;
-          background: #f8fafc;
-          border-radius: 8px;
-          cursor: pointer;
-          font-weight: 500;
-        }
-
-        .toggle-option input[type="checkbox"] {
-          width: 18px;
-          height: 18px;
-          accent-color: var(--accent-primary);
-        }
-
-        .toggle-hint {
-          display: block;
-          margin-top: 6px;
-          color: var(--text-muted);
-          font-size: 12px;
-        }
+        .text-accent { color: var(--accent-primary); }
+        .text-highlight { color: var(--text-highlight); }
+        .border-accent { border-color: var(--accent-primary); }
+        .bg-accent { background: var(--accent-primary); }
       `}</style>
-
-      <style jsx global>{`
-        html, body { margin: 0; padding: 0; background: #f8fafc; }
-      `}</style>
-    </>
+    </Layout>
   );
 }

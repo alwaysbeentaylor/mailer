@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import Navigation from '../components/Navigation';
+import Layout from '../components/Layout';
 
 export default function TemplatesPage() {
     const [templates, setTemplates] = useState([]);
@@ -152,393 +153,175 @@ export default function TemplatesPage() {
     };
 
     return (
-        <>
-            <Head>
-                <title>Email Templates | SKYE Mail Agent</title>
-                <link rel="preconnect" href="https://fonts.googleapis.com" />
-                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-            </Head>
-
-            <div className="app">
-                <Navigation />
-                <div className="page-header">
-                    <h1>🎨 Email Templates</h1>
-                    <button onClick={createNewTemplate} className="btn btn-primary">
+        <Layout title="Email Templates | SKYE Mail Agent">
+            <div className="page-container">
+                <div className="page-header flex justify-between items-center">
+                    <div>
+                        <h1 className="page-title"><span className="text-gradient">Email</span> Templates</h1>
+                        <p className="page-subtitle">Ontwerp en beheer de layout van je uitgaande emails.</p>
+                    </div>
+                    <button onClick={createNewTemplate} className="premium-button">
                         ➕ Nieuwe Template
                     </button>
                 </div>
 
-                <main className="main">
-                    <div className="container">
-                        <div className="templates-layout">
-                            {/* Templates Grid */}
-                            <div className="templates-grid">
-                                {loading ? (
-                                    <div className="loading">Laden...</div>
-                                ) : (
-                                    templates.map(template => (
-                                        <div
-                                            key={template.id}
-                                            className={`template-card ${selectedTemplate?.id === template.id ? 'selected' : ''}`}
-                                            onClick={() => selectTemplate(template)}
-                                        >
-                                            <div
-                                                className="template-preview-thumb"
-                                                style={{ borderTopColor: template.accentColor || '#e2e8f0' }}
-                                            >
-                                                {template.isBlank ? '📄' : '📧'}
-                                            </div>
-                                            <div className="template-info">
-                                                <div className="template-name">
-                                                    {template.name}
-                                                    {template.isDefault && <span className="default-badge">Standaard</span>}
-                                                </div>
-                                                <div className="template-desc">{template.description}</div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 min-h-[600px]">
+                    {/* Templates Grid */}
+                    <div className="flex flex-col gap-3">
+                        {loading ? (
+                            <div className="p-8 text-center text-secondary">Loading...</div>
+                        ) : (
+                            templates.map(template => (
+                                <div
+                                    key={template.id}
+                                    className={`p-4 rounded-xl border cursor-pointer transition-all ${selectedTemplate?.id === template.id ? 'bg-accent/10 border-accent shadow-lg shadow-accent/20' : 'bg-white/5 border-glass hover:bg-white/10 hover:border-white/20'}`}
+                                    onClick={() => selectTemplate(template)}
+                                >
+                                    <div
+                                        className="h-16 bg-white/10 rounded-lg flex items-center justify-center text-2xl mb-3 border-t-4"
+                                        style={{ borderTopColor: template.accentColor || '#e2e8f0' }}
+                                    >
+                                        {template.isBlank ? '📄' : '📧'}
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="font-bold text-white truncate">{template.name}</div>
+                                        {template.isDefault && <span className="badge secondary text-[10px]">Standaard</span>}
+                                    </div>
+                                    <div className="text-xs text-secondary truncate">{template.description}</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
 
-                            {/* Template Editor/Preview */}
-                            <div className="template-editor">
-                                {selectedTemplate ? (
-                                    <>
-                                        <div className="editor-header">
-                                            <div className="editor-title">
-                                                {editMode ? '✏️ Bewerken' : selectedTemplate.name}
-                                            </div>
-                                            <div className="editor-actions">
-                                                {!editMode ? (
-                                                    <>
-                                                        <button onClick={handleEdit} className="btn btn-secondary">
-                                                            {selectedTemplate.isDefault ? '📋 Bewerken (maakt kopie)' : '✏️ Bewerken'}
-                                                        </button>
-                                                        {!selectedTemplate.isDefault && (
-                                                            <button
-                                                                onClick={() => deleteTemplate(selectedTemplate.id)}
-                                                                className="btn btn-danger-text"
-                                                            >
-                                                                🗑️
-                                                            </button>
-                                                        )}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button onClick={() => setEditMode(false)} className="btn btn-secondary">
-                                                            Annuleren
-                                                        </button>
-                                                        <button onClick={saveTemplate} className="btn btn-primary">
-                                                            💾 Opslaan
-                                                        </button>
-                                                    </>
+                    {/* Template Editor/Preview */}
+                    <div className="glass-card p-0 overflow-hidden flex flex-col h-full bg-[#0d0d1a]">
+                        {selectedTemplate ? (
+                            <>
+                                <div className="p-4 border-b border-glass flex justify-between items-center bg-white/5">
+                                    <div className="font-bold text-lg text-white">
+                                        {editMode ? '✏️ Bewerken' : selectedTemplate.name}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {!editMode ? (
+                                            <>
+                                                <button onClick={handleEdit} className="premium-button secondary text-sm">
+                                                    {selectedTemplate.isDefault ? '📋 Bewerken (Kopie)' : '✏️ Bewerken'}
+                                                </button>
+                                                {!selectedTemplate.isDefault && (
+                                                    <button
+                                                        onClick={() => deleteTemplate(selectedTemplate.id)}
+                                                        className="premium-button secondary text-error hover:bg-error/10 border-error/30"
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 )}
-                                            </div>
-                                        </div>
-
-                                        {editMode ? (
-                                            <div className="edit-form">
-                                                <div className="form-row">
-                                                    <div className="form-group">
-                                                        <label>Naam</label>
-                                                        <input
-                                                            type="text"
-                                                            value={editData.name}
-                                                            onChange={e => setEditData({ ...editData, name: e.target.value })}
-                                                            className="input"
-                                                        />
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label>Accent Kleur</label>
-                                                        <div className="color-input">
-                                                            <input
-                                                                type="color"
-                                                                value={editData.accentColor}
-                                                                onChange={e => {
-                                                                    setEditData({ ...editData, accentColor: e.target.value });
-                                                                    updatePreview(editData.html, e.target.value);
-                                                                }}
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={editData.accentColor}
-                                                                onChange={e => setEditData({ ...editData, accentColor: e.target.value })}
-                                                                className="input"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>Beschrijving</label>
-                                                    <input
-                                                        type="text"
-                                                        value={editData.description}
-                                                        onChange={e => setEditData({ ...editData, description: e.target.value })}
-                                                        className="input"
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>HTML Code</label>
-                                                    <textarea
-                                                        value={editData.html}
-                                                        onChange={e => {
-                                                            setEditData({ ...editData, html: e.target.value });
-                                                            updatePreview(e.target.value, editData.accentColor);
-                                                        }}
-                                                        className="code-editor"
-                                                        rows={15}
-                                                    />
-                                                </div>
-                                                <div className="variables-help">
-                                                    <strong>Beschikbare variabelen:</strong>{' '}
-                                                    {'{{content}}'} {'{{companyName}}'} {'{{accentColor}}'} {'{{footer}}'} {'{{signature}}'} {'{{headline}}'} {'{{subheadline}}'}
-                                                </div>
-                                            </div>
+                                            </>
                                         ) : (
-                                            <div className="preview-container">
-                                                <div className="preview-label">Preview</div>
-                                                <iframe
-                                                    srcDoc={previewHtml}
-                                                    className="preview-frame"
-                                                    title="Template Preview"
+                                            <>
+                                                <button onClick={() => setEditMode(false)} className="premium-button secondary text-sm">
+                                                    Annuleren
+                                                </button>
+                                                <button onClick={saveTemplate} className="premium-button text-sm bg-gradient-to-r from-green-500 to-emerald-600">
+                                                    💾 Opslaan
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {editMode ? (
+                                    <div className="p-6 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_200px] gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-secondary uppercase font-bold">Naam</label>
+                                                <input
+                                                    type="text"
+                                                    value={editData.name}
+                                                    onChange={e => setEditData({ ...editData, name: e.target.value })}
+                                                    className="premium-input w-full"
                                                 />
                                             </div>
-                                        )}
-                                    </>
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-secondary uppercase font-bold">Accent Kleur</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="color"
+                                                        value={editData.accentColor}
+                                                        onChange={e => {
+                                                            setEditData({ ...editData, accentColor: e.target.value });
+                                                            updatePreview(editData.html, e.target.value);
+                                                        }}
+                                                        className="h-10 w-12 rounded cursor-pointer bg-transparent border border-glass p-0"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={editData.accentColor}
+                                                        onChange={e => setEditData({ ...editData, accentColor: e.target.value })}
+                                                        className="premium-input w-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-secondary uppercase font-bold">Beschrijving</label>
+                                            <input
+                                                type="text"
+                                                value={editData.description}
+                                                onChange={e => setEditData({ ...editData, description: e.target.value })}
+                                                className="premium-input w-full"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2 flex-1 flex flex-col">
+                                            <label className="text-xs text-secondary uppercase font-bold">HTML Code</label>
+                                            <textarea
+                                                value={editData.html}
+                                                onChange={e => {
+                                                    setEditData({ ...editData, html: e.target.value });
+                                                    updatePreview(e.target.value, editData.accentColor);
+                                                }}
+                                                className="premium-input font-mono text-sm w-full h-[300px]"
+                                            />
+                                        </div>
+
+                                        <div className="p-3 rounded-lg bg-white/5 border border-glass text-xs font-mono text-secondary">
+                                            <strong className="text-white block mb-1">Beschikbare variabelen:</strong>
+                                            {'{{content}}'} {'{{companyName}}'} {'{{accentColor}}'} {'{{footer}}'} {'{{signature}}'} {'{{headline}}'} {'{{subheadline}}'}
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <div className="no-selection">
-                                        <span className="empty-icon">👈</span>
-                                        <p>Selecteer een template om te bekijken</p>
+                                    <div className="flex-1 flex flex-col bg-white">
+                                        <div className="px-4 py-2 bg-gray-100 border-b text-xs font-bold text-gray-500 uppercase">Preview</div>
+                                        <iframe
+                                            srcDoc={previewHtml}
+                                            className="w-full flex-1 border-none"
+                                            title="Template Preview"
+                                        />
                                     </div>
                                 )}
+                            </>
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-secondary opacity-50 p-12">
+                                <div className="text-6xl mb-4">👈</div>
+                                <p>Selecteer een template om te bekijken</p>
                             </div>
-                        </div>
+                        )}
                     </div>
-                </main>
-
-                <style jsx>{`
-          .app {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-            font-family: 'Inter', sans-serif;
-          }
-
-          .page-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 24px;
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-          }
-
-          .page-header h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 700;
-            color: #1e293b;
-          }
-
-          .main { padding: 24px; }
-          .container { max-width: 1600px; margin: 0 auto; }
-
-          .templates-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 24px;
-            min-height: calc(100vh - 150px);
-          }
-
-          .templates-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .template-card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          .template-card:hover { border-color: #cbd5e1; }
-          .template-card.selected {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-          }
-
-          .template-preview-thumb {
-            height: 60px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border-top: 4px solid;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            margin-bottom: 12px;
-          }
-
-          .template-info {}
-          .template-name {
-            font-weight: 600;
-            color: #1e293b;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .default-badge {
-            font-size: 10px;
-            background: #e0f2fe;
-            color: #0284c7;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 500;
-          }
-
-          .template-desc {
-            font-size: 12px;
-            color: #64748b;
-            margin-top: 4px;
-          }
-
-          .template-editor {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            overflow: hidden;
-          }
-
-          .editor-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            border-bottom: 1px solid #e2e8f0;
-          }
-
-          .editor-title { font-weight: 700; font-size: 16px; color: #1e293b; }
-          .editor-actions { display: flex; gap: 8px; }
-
-          .edit-form { padding: 20px; }
-
-          .form-row {
-            display: grid;
-            grid-template-columns: 1fr 200px;
-            gap: 16px;
-          }
-
-          .form-group {
-            margin-bottom: 16px;
-          }
-
-          .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 500;
-            color: #64748b;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-          }
-
-          .input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 14px;
-          }
-
-          .input:focus { outline: none; border-color: #3b82f6; }
-
-          .color-input {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-          }
-
-          .color-input input[type="color"] {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-          }
-
-          .code-editor {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            line-height: 1.5;
-            resize: vertical;
-          }
-
-          .variables-help {
-            font-size: 12px;
-            color: #64748b;
-            background: #f8fafc;
-            padding: 12px;
-            border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-          }
-
-          .preview-container { height: 100%; }
-
-          .preview-label {
-            padding: 12px 20px;
-            font-size: 12px;
-            font-weight: 500;
-            color: #64748b;
-            text-transform: uppercase;
-            border-bottom: 1px solid #e2e8f0;
-          }
-
-          .preview-frame {
-            width: 100%;
-            height: calc(100vh - 250px);
-            border: none;
-            background: white;
-          }
-
-          .no-selection {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 400px;
-            color: #64748b;
-          }
-
-          .empty-icon { font-size: 48px; margin-bottom: 12px; }
-          .loading { padding: 40px; text-align: center; color: #64748b; }
-
-          .btn {
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-            font-size: 13px;
-            transition: all 0.2s;
-          }
-
-          .btn-secondary { background: #f1f5f9; color: #1e293b; }
-          .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
-          .btn-danger-text { background: none; color: #ef4444; }
-
-          @media (max-width: 900px) {
-            .templates-layout { grid-template-columns: 1fr; }
-          }
-        `}</style>
+                </div>
             </div>
-        </>
+            <style jsx>{`
+               .custom-scrollbar::-webkit-scrollbar {
+                  width: 6px;
+               }
+               .custom-scrollbar::-webkit-scrollbar-track {
+                  background: rgba(0,0,0,0.1);
+               }
+               .custom-scrollbar::-webkit-scrollbar-thumb {
+                  background: rgba(255,255,255,0.1);
+                  border-radius: 3px;
+               }
+            `}</style>
+        </Layout>
     );
 }

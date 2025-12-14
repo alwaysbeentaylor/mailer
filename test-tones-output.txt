@@ -1,0 +1,49 @@
+﻿[dotenv@17.2.3] injecting env (3) from .env.local -- tip: ÔÜÖ´©Å  load multiple .env files with { path: ['.env.local', '.env'] }
+­ƒº¬ Testing ALL email tones...
+
+API Key: Ô£à Present
+
+============================================================
+­ƒÄ¿ Testing TONE: PROFESSIONAL
+============================================================
+   Style loaded: "Zakelijk maar makkelijk te lezen. Geen moeilijke w..."
+   Intro example: "Ik keek naar je site. Viel me iets op dat je klant..."
+   Ô£à Response complete - All sections found
+   ­ƒôº Subject: "Kans voor Test Restaurant: Meer gasten via je site"
+   ­ƒôØ Intro: "Ik heb je website test-restaurant.be bekeken. Het viel me op dat er een sterke b..."
+
+============================================================
+­ƒÄ¿ Testing TONE: CASUAL
+============================================================
+   Style loaded: "Chill en vriendelijk! Schrijf alsof je een maat ti..."
+   Intro example: "Yo! Keek net naar je site. Viel me wat op. Geen ha..."
+   Ô£à Response complete - All sections found
+   ­ƒôº Subject: "Jullie site + mijn idee = meer klanten! ­ƒÜÇ"
+   ­ƒôØ Intro: "Hey team van Test Restaurant! ­ƒæï Ik was net op jullie site aan het rondneuzen, e..."
+
+============================================================
+­ƒÄ¿ Testing TONE: URGENT
+============================================================
+   Style loaded: "Urgentie cre├½ren! Laat ze voelen wat ze missen. El..."
+   Intro example: "Elke dag dat je site zo blijft, loop je klanten mi..."
+   Ô£à Response complete - All sections found
+   ­ƒôº Subject: "ÔÜá´©Å Jouw site: Elke dag mis je klanten. Dringend! ­ƒöÑ"
+   ­ƒôØ Intro: "Ik bezocht test-restaurant.be. Eerlijk? Je verliest elke dag potenti├½le gasten. ..."
+
+============================================================
+­ƒÄ¿ Testing TONE: FRIENDLY
+============================================================
+   Style loaded: "Warm en behulpzaam. Alsof je een kennis helpt.
+Ni..."
+   Intro example: "Hoi! Kwam je site tegen. Viel me wat op dat je kan..."
+   Ô£à Response complete - All sections found
+   ­ƒôº Subject: "Een ideetje voor jullie site bij Test Restaurant ­ƒÆí"
+   ­ƒôØ Intro: "Hoi! Ik was even wat aan het rondkijken en kwam jullie website van Test Restaura..."
+
+============================================================
+­ƒôè SUMMARY
+============================================================
+   professional: Ô£à WORKS
+   casual: Ô£à WORKS
+   urgent: Ô£à WORKS
+   friendly: Ô£à WORKS

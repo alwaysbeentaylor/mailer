@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import Head from "next/head";
-import Link from "next/link";
 import Image from "next/image";
-import Navigation from "../components/Navigation";
+import Link from "next/link";
+import Layout from "../components/Layout";
 
 export default function Home() {
   const [formData, setFormData] = useState({
@@ -60,6 +59,34 @@ export default function Home() {
     }
   }, []);
 
+  // Email sending logs (persistent)
+  const [logs, setLogs] = useState([]);
+
+  // Load logs from localStorage on mount
+  useEffect(() => {
+    const savedLogs = localStorage.getItem("skyeSingleSendLogs");
+    if (savedLogs) {
+      setLogs(JSON.parse(savedLogs));
+    }
+  }, []);
+
+  // Add log function (persistent)
+  const addLog = (message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString('nl-NL');
+    const newLog = { timestamp, message, type, id: Date.now() };
+    setLogs(prev => {
+      const updated = [...prev, newLog].slice(-50); // Keep last 50 logs
+      localStorage.setItem("skyeSingleSendLogs", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Clear logs function
+  const clearLogs = () => {
+    setLogs([]);
+    localStorage.removeItem("skyeSingleSendLogs");
+  };
+
   const updateStats = (newSent) => {
     const newStats = { ...stats, sent: stats.sent + newSent };
     setStats(newStats);
@@ -75,15 +102,28 @@ export default function Home() {
     setPreviewMode(isPreview);
     setLoading(true);
     setError(null);
-    // Don't clear result immediately if we are sending, to avoid UI flicker? 
-    // Actually standard behavior is fine, but let's keep it null for loading state logic if needed.
     setResult(null);
+
+    // Get selected SMTP account info for logging
+    const selectedSmtp = smtpAccounts.find(a => a.id === selectedSmtpId);
+    const smtpName = selectedSmtp?.name || selectedSmtp?.user || 'onbekend';
 
     // Check SMTP account when sending (not for preview)
     if (!isPreview && !selectedSmtpId && smtpAccounts.length === 0) {
+      addLog('❌ Geen SMTP account geconfigureerd', 'error');
       setError('Geen SMTP account geconfigureerd. Ga naar Settings om een account toe te voegen.');
       setLoading(false);
       return;
+    }
+
+    // Log start of process
+    if (isPreview) {
+      addLog(`👁️ Preview gestart voor ${formData.businessName}`, 'info');
+      addLog(`🔍 Website analyse: ${formData.websiteUrl}`, 'info');
+    } else {
+      addLog(`🚀 Email verzenden naar ${formData.toEmail}`, 'info');
+      addLog(`📡 SMTP Account: ${smtpName}`, 'info');
+      addLog(`🔗 Verbinding maken met ${selectedSmtp?.host || 'SMTP server'}...`, 'info');
     }
 
     try {
@@ -95,12 +135,15 @@ export default function Home() {
 
       // If we have pre-generated data (from preview), send it along
       if (!isPreview && preGeneratedResult) {
+        addLog('📄 Gebruik pre-generated content uit preview', 'info');
         payload.preGeneratedData = {
           subject: preGeneratedResult.subject,
           body: preGeneratedResult.body,
           sections: preGeneratedResult.sections,
           siteAnalysis: preGeneratedResult.siteAnalysis
         };
+      } else if (!isPreview) {
+        addLog('🤖 AI email generatie starten...', 'info');
       }
 
       const res = await fetch("/api/send-email", {
@@ -117,7 +160,25 @@ export default function Home() {
       }
 
       setResult(data);
-      if (!isPreview) {
+
+      if (isPreview) {
+        addLog(`✅ Preview klaar - Niche: ${data.siteAnalysis?.niche || 'onbekend'}`, 'success');
+        if (data.usedAI) {
+          addLog(`🤖 AI gegenereerd met "${data.selectedTone || formData.emailTone}" stijl`, 'success');
+        } else {
+          addLog(`⚠️ Fallback template gebruikt (geen AI)`, 'warning');
+        }
+        // Show if sections have content
+        if (data.sections) {
+          const filledSections = Object.entries(data.sections).filter(([k, v]) => v && v.length > 10).length;
+          addLog(`📊 ${filledSections}/5 secties gevuld`, filledSections >= 4 ? 'success' : 'warning');
+        }
+      } else {
+        addLog(`✅ Email verzonden naar ${formData.toEmail}`, 'success');
+        addLog(`📧 Subject: "${data.subject}"`, 'success');
+        if (data.messageId) {
+          addLog(`📍 Message ID: ${data.messageId.slice(0, 20)}...`, 'info');
+        }
         updateStats(1);
         // Reset form after successful send
         setFormData({
@@ -132,6 +193,7 @@ export default function Home() {
         });
       }
     } catch (err) {
+      addLog(`❌ Fout: ${err.message}`, 'error');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -159,703 +221,443 @@ export default function Home() {
   ];
 
   return (
-    <>
-      <Head>
-        <title>SKYE Mail Agent | AI-Powered Cold Outreach</title>
-        <meta name="description" content="Genereer en verstuur AI-geschreven cold emails direct via Gmail" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      </Head>
+    <Layout title="SKYE Mail Agent | AI-Powered Cold Outreach">
+      <div className="page-container">
+        {/* Hero Section */}
+        <div className="page-header center-text">
+          <h1 className="page-title">
+            <span className="text-gradient">AI-Powered</span> Cold Outreach
+          </h1>
+          <p className="page-subtitle">
+            Laat de <span className="highlight">Client Generator</span> het zware werk doen.
+            Vul de details in en zie de magie gebeuren.
+          </p>
+        </div>
 
-      <div className="app">
-        {/* Background Effects */}
-        <div className="bg-orb orb-1"></div>
-        <div className="bg-orb orb-2"></div>
-        <div className="bg-grid"></div>
+        {/* Main Card */}
+        <div className="glass-card main-form-card">
+          <form onSubmit={handleSubmit} className="form-content">
+            {/* Lead Info Section */}
+            <div className="form-section">
+              <h2 className="section-title">
+                <span className="section-icon">📧</span>
+                Lead Informatie
+              </h2>
 
-        {/* Header */}
-        <header className="header glass-panel">
-          <div className="logo">
-            <div className="logo-container">
-              {/* Using the new logo asset if you want, or keeping the text style but enhanced */}
-              <span className="logo-icon">⚡</span>
-              <span className="logo-text neon-text">CLIENT GENERATOR</span>
-            </div>
-            <span className="logo-badge">MAIL AGENT v2.0</span>
-          </div>
-          <Navigation dark={true} />
-        </header>
-
-        {/* Main Content */}
-        <main className="main">
-          <div className="container">
-            {/* Hero Section */}
-            <div className="hero">
-              <h1 className="hero-title">
-                <span className="text-gradient">AI-Powered</span><br />
-                Cold Outreach
-              </h1>
-              <p className="hero-subtitle">
-                Laat de <span className="highlight">Client Generator</span> het zware werk doen.
-                Vul de details in en zie de magie gebeuren.
-              </p>
-            </div>
-
-            {/* Main Card */}
-            <div className="card glass-panel">
-              <form onSubmit={handleSubmit} className="form">
-                {/* Lead Info Section */}
-                <div className="form-section">
-                  <h2 className="section-title">
-                    <span className="section-icon">📧</span>
-                    Lead Informatie
-                  </h2>
-
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label className="label">
-                        E-mailadres ontvanger
-                        <span className="required">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        name="toEmail"
-                        value={formData.toEmail}
-                        onChange={handleChange}
-                        required
-                        placeholder="info@bedrijf.be"
-                        className="input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">
-                        Bedrijfsnaam
-                        <span className="required">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="businessName"
-                        value={formData.businessName}
-                        onChange={handleChange}
-                        required
-                        placeholder="Restaurant De Gouden Leeuw"
-                        className="input"
-                      />
-                    </div>
-
-                    <div className="form-group full-width">
-                      <label className="label">
-                        Website URL
-                        <span className="required">*</span>
-                      </label>
-                      <input
-                        type="url"
-                        name="websiteUrl"
-                        value={formData.websiteUrl}
-                        onChange={handleChange}
-                        required
-                        placeholder="https://www.bedrijf.be"
-                        className="input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="label">
-                        Contactpersoon
-                        <span className="optional">(optioneel)</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="contactPerson"
-                        value={formData.contactPerson}
-                        onChange={handleChange}
-                        placeholder="Jan Janssen"
-                        className="input"
-                      />
-                    </div>
-
-                    {/* SMTP Account Selector */}
-                    <div className="form-group full-width">
-                      <label className="label">
-                        Verstuur via
-                        <span className="required">*</span>
-                      </label>
-                      {loadingSmtp ? (
-                        <div className="smtp-loading">⏳ SMTP accounts laden...</div>
-                      ) : smtpAccounts.length === 0 ? (
-                        <div className="smtp-warning">
-                          <span>⚠️ Geen SMTP accounts geconfigureerd</span>
-                          <Link href="/settings" className="smtp-setup-link">
-                            → Configureer in Settings
-                          </Link>
-                        </div>
-                      ) : (
-                        <select
-                          value={selectedSmtpId}
-                          onChange={(e) => setSelectedSmtpId(e.target.value)}
-                          className="input smtp-select"
-                        >
-                          {smtpAccounts.map((acc) => (
-                            <option key={acc.id} value={acc.id}>
-                              {acc.name || acc.user} ({acc.host})
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label className="input-label">
+                    E-mailadres ontvanger <span className="text-pink">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="toEmail"
+                    value={formData.toEmail}
+                    onChange={handleChange}
+                    required
+                    placeholder="info@bedrijf.be"
+                    className="premium-input"
+                  />
                 </div>
 
-                {/* Email Style Section */}
-                <div className="form-section">
-                  <h2 className="section-title">
-                    <span className="section-icon">✨</span>
-                    Email Stijl
-                  </h2>
-
-                  <div className="tone-grid">
-                    {toneOptions.map((tone) => (
-                      <label
-                        key={tone.value}
-                        className={`tone-option ${formData.emailTone === tone.value ? 'active' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="emailTone"
-                          value={tone.value}
-                          checked={formData.emailTone === tone.value}
-                          onChange={handleChange}
-                          className="tone-radio"
-                        />
-                        <span className="tone-label">{tone.label}</span>
-                        <span className="tone-desc">{tone.desc}</span>
-                      </label>
-                    ))}
-                  </div>
-
-                  <div className="form-group" style={{ marginTop: '16px' }}>
-                    <label className="label">
-                      Extra notities voor AI
-                      <span className="optional">(optioneel)</span>
-                    </label>
-                    <textarea
-                      name="customNotes"
-                      value={formData.customNotes}
-                      onChange={handleChange}
-                      placeholder="Bijv: Focus op mobiele website, vermeld hun Instagram pagina, ze hebben een nieuwe locatie geopend..."
-                      className="textarea"
-                      rows={3}
-                    />
-                  </div>
+                <div className="input-group">
+                  <label className="input-label">
+                    Bedrijfsnaam <span className="text-pink">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="businessName"
+                    value={formData.businessName}
+                    onChange={handleChange}
+                    required
+                    placeholder="Restaurant De Gouden Leeuw"
+                    className="premium-input"
+                  />
                 </div>
 
-                {/* Subject & Pre-header Section */}
-                <div className="form-section">
-                  <h2 className="section-title">
-                    <span className="section-icon">📝</span>
-                    Onderwerp & Pre-header
-                  </h2>
-
-                  <div className="subject-preheader-grid">
-                    {/* Subject Line */}
-                    <div className="custom-field-block">
-                      <div className="field-header">
-                        <label className="label">Onderwerp</label>
-                        <div className="toggle-pills">
-                          <button
-                            type="button"
-                            className={`pill ${!formData.customSubject ? 'active' : ''}`}
-                            onClick={() => setFormData(prev => ({ ...prev, customSubject: '' }))}
-                          >
-                            🎲 Auto
-                          </button>
-                          <button
-                            type="button"
-                            className={`pill ${formData.customSubject ? 'active' : ''}`}
-                            onClick={() => setFormData(prev => ({ ...prev, customSubject: prev.customSubject || ' ' }))}
-                          >
-                            ✏️ Custom
-                          </button>
-                        </div>
-                      </div>
-                      {formData.customSubject ? (
-                        <input
-                          type="text"
-                          name="customSubject"
-                          value={formData.customSubject.trim() ? formData.customSubject : ''}
-                          onChange={handleChange}
-                          placeholder="Bijv: {businessName} - even gecheckt"
-                          className="input"
-                        />
-                      ) : (
-                        <div className="auto-hint">
-                          AI genereert automatisch op basis van email stijl
-                        </div>
-                      )}
-                      <div className="placeholder-hint">
-                        Gebruik: <code>{'{businessName}'}</code>, <code>{'{websiteUrl}'}</code>
-                      </div>
-                    </div>
-
-                    {/* Pre-header */}
-                    <div className="custom-field-block">
-                      <div className="field-header">
-                        <label className="label">Pre-header</label>
-                        <div className="toggle-pills">
-                          <button
-                            type="button"
-                            className={`pill ${!formData.customPreheader ? 'active' : ''}`}
-                            onClick={() => setFormData(prev => ({ ...prev, customPreheader: '' }))}
-                          >
-                            🎲 Auto
-                          </button>
-                          <button
-                            type="button"
-                            className={`pill ${formData.customPreheader ? 'active' : ''}`}
-                            onClick={() => setFormData(prev => ({ ...prev, customPreheader: prev.customPreheader || ' ' }))}
-                          >
-                            ✏️ Custom
-                          </button>
-                        </div>
-                      </div>
-                      {formData.customPreheader ? (
-                        <input
-                          type="text"
-                          name="customPreheader"
-                          value={formData.customPreheader.trim() ? formData.customPreheader : ''}
-                          onChange={handleChange}
-                          placeholder="Bijv: Ik zag 3 dingen die bezoekers kosten"
-                          className="input"
-                        />
-                      ) : (
-                        <div className="auto-hint">
-                          AI genereert automatisch op basis van niche
-                        </div>
-                      )}
-                      <div className="placeholder-hint">
-                        Tekst die in inbox preview verschijnt na onderwerp
-                      </div>
-                    </div>
-                  </div>
+                <div className="input-group full-width">
+                  <label className="input-label">
+                    Website URL <span className="text-pink">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    name="websiteUrl"
+                    value={formData.websiteUrl}
+                    onChange={handleChange}
+                    required
+                    placeholder="https://www.bedrijf.be"
+                    className="premium-input"
+                  />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="button-group">
-                  <button
-                    type="submit"
-                    name="action"
-                    value="preview"
-                    disabled={loading}
-                    className="btn btn-secondary"
-                  >
-                    👁️ Preview
-                  </button>
-                  <button
-                    type="submit"
-                    name="action"
-                    value="send"
-                    disabled={loading}
-                    className={`btn btn-primary ${loading ? 'loading' : ''}`}
-                  >
-                    {loading ? (
-                      <div className="loading-content">
-                        {/* ROBOT ANIMATION HERE */}
-                        <div className="robot-wrapper">
-                          <Image
-                            src="/assets/robot-working.png"
-                            alt="Working Robot"
-                            width={50}
-                            height={50}
-                            className="robot-anim"
-                          />
-                        </div>
-                        <span>De robot is aan het typen...</span>
-                      </div>
-                    ) : (
-                      <>🚀 Verstuur Email</>
-                    )}
-                  </button>
+                <div className="input-group">
+                  <label className="input-label">
+                    Contactpersoon <span className="text-muted">(optioneel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="contactPerson"
+                    value={formData.contactPerson}
+                    onChange={handleChange}
+                    placeholder="Jan Janssen"
+                    className="premium-input"
+                  />
                 </div>
-              </form>
 
-              {/* Error Display */}
-              {error && (
-                <div className="alert alert-error">
-                  <span className="alert-icon">❌</span>
-                  <div className="alert-content">
-                    <strong>Fout bij versturen</strong>
-                    <p>{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Result Display */}
-              {result && (
-                <div className={`result ${result.dryRun ? 'result-preview' : 'result-success'}`}>
-                  <div className="result-header">
-                    {result.dryRun ? (
-                      <>
-                        <span className="result-icon">👁️</span>
-                        <span className="result-title">Preview Modus</span>
-                        <span className="result-badge preview">Niet verstuurd</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="result-icon">✅</span>
-                        <span className="result-title">Email Verstuurd!</span>
-                        <span className="result-badge success">ID: {result.messageId?.slice(0, 8)}...</span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="result-meta">
-                    <span>📧 {result.toEmail}</span>
-                    <span>🏢 {result.businessName}</span>
-                    {result.usedAI && <span>🤖 AI Generated</span>}
-                    {result.wasRandom && result.selectedTone && (
-                      <span>🎲 Stijl: {
-                        result.selectedTone === 'professional' ? 'ROI Focus' :
-                          result.selectedTone === 'casual' ? 'Value Drop' :
-                            result.selectedTone === 'urgent' ? 'FOMO' :
-                              result.selectedTone === 'friendly' ? 'Warm Direct' : result.selectedTone
-                      }</span>
-                    )}
-                  </div>
-
-                  {/* Site Analysis Display */}
-                  {result.siteAnalysis && (
-                    <div className="site-analysis">
-                      <div className="analysis-header">🔍 Website Analyse</div>
-
-                      {/* Niche Detection */}
-                      {result.siteAnalysis.niche && (
-                        <div className="niche-badge">
-                          🎯 Gedetecteerde branche: <strong>{result.siteAnalysis.niche}</strong>
-                          <span className={`confidence ${result.siteAnalysis.nicheConfidence}`}>
-                            ({result.siteAnalysis.nicheConfidence} zekerheid)
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Unique Observations */}
-                      {result.siteAnalysis.uniqueObservations && result.siteAnalysis.uniqueObservations.length > 0 && (
-                        <div className="observations-section">
-                          <div className="mini-header">💡 Persoonlijke observaties:</div>
-                          {result.siteAnalysis.uniqueObservations.map((obs, i) => (
-                            <div key={i} className="observation-item">• {obs}</div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Detected Services */}
-                      {result.siteAnalysis.services && result.siteAnalysis.services.length > 0 && (
-                        <div className="services-section">
-                          <div className="mini-header">📋 Gevonden diensten:</div>
-                          <div className="services-list">
-                            {result.siteAnalysis.services.slice(0, 4).map((service, i) => (
-                              <span key={i} className="service-tag">{service}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Slogans */}
-                      {result.siteAnalysis.slogans && result.siteAnalysis.slogans.length > 0 && (
-                        <div className="slogan-section">
-                          <div className="mini-header">✨ Hun boodschap:</div>
-                          <div className="slogan-text">"{result.siteAnalysis.slogans[0]}"</div>
-                        </div>
-                      )}
-
-                      {/* Technical Issues */}
-                      {result.siteAnalysis.issues && result.siteAnalysis.issues.length > 0 && (
-                        <div className="analysis-issues">
-                          <div className="mini-header">⚠️ Technische problemen:</div>
-                          {result.siteAnalysis.issues.map((issue, i) => (
-                            <div key={i} className="issue-item">{issue}</div>
-                          ))}
-                        </div>
-                      )}
-                      {result.siteAnalysis.issues && result.siteAnalysis.issues.length === 0 && (
-                        <div className="issue-item success">✅ Geen grote problemen gevonden</div>
-                      )}
-
-                      <div className="analysis-stats">
-                        <span className={result.siteAnalysis.hasSSL ? 'stat-good' : 'stat-bad'}>
-                          {result.siteAnalysis.hasSSL ? '🔒' : '⚠️'} HTTPS
-                        </span>
-                        <span className={result.siteAnalysis.hasMobileViewport ? 'stat-good' : 'stat-bad'}>
-                          {result.siteAnalysis.hasMobileViewport ? '📱' : '⚠️'} Mobile
-                        </span>
-                        <span className={result.siteAnalysis.hasWhatsApp ? 'stat-good' : 'stat-bad'}>
-                          {result.siteAnalysis.hasWhatsApp ? '💬' : '⚠️'} WhatsApp
-                        </span>
-                        {result.siteAnalysis.hasTestimonials && (
-                          <span className="stat-good">⭐ Reviews</span>
-                        )}
-                        {result.siteAnalysis.hasBlog && (
-                          <span className="stat-good">📰 Blog</span>
-                        )}
-                      </div>
+                {/* SMTP Account Selector */}
+                <div className="input-group full-width">
+                  <label className="input-label">
+                    Verstuur via <span className="text-pink">*</span>
+                  </label>
+                  {loadingSmtp ? (
+                    <div className="status-loading">⏳ SMTP accounts laden...</div>
+                  ) : smtpAccounts.length === 0 ? (
+                    <div className="status-warning">
+                      <span>⚠️ Geen SMTP accounts geconfigureerd</span>
+                      <Link href="/settings" className="link-highlight">
+                        → Configureer in Settings
+                      </Link>
                     </div>
-                  )}
-
-                  <div className="email-preview">
-                    <div className="email-subject">
-                      <span className="email-label">Onderwerp:</span>
-                      {result.subject}
-                    </div>
-
-                    {result.preheader && (
-                      <div className="email-preheader">
-                        <span className="email-label">Pre-header:</span>
-                        <span className="preheader-text">{result.preheader}</span>
-                      </div>
-                    )}
-
-                    {result.sections ? (
-                      <div className="email-sections">
-                        {/* Intro sectie ZONDER label, maar MET branche badge */}
-                        <div className="section intro">
-                          {result.siteAnalysis?.niche && result.siteAnalysis.niche !== 'bedrijf' && (
-                            <span className="branche-badge">🎯 {result.siteAnalysis.niche}</span>
-                          )}
-                          <FormattedText text={result.sections.intro} />
-                        </div>
-                        <div className="section audit">
-                          <span className="section-label">💡 Gratis Audit</span>
-                          <FormattedText text={result.sections.audit} />
-                        </div>
-                        <div className="section boosters">
-                          <span className="section-label">🔥 SKYE Oplossing</span>
-                          <FormattedText text={result.sections.boosters} />
-                        </div>
-                        <div className="section resultaat">
-                          <span className="section-label">🚀 Resultaat</span>
-                          <FormattedText text={result.sections.resultaat} />
-                        </div>
-                        <div className="section cta">
-                          <span className="section-label">📞 CTA</span>
-                          <FormattedText text={result.sections.cta} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="email-body">
-                        <span className="email-label">Email:</span>
-                        <pre>{result.body}</pre>
-                      </div>
-                    )}
-                  </div>
-
-                  {result.dryRun && (
-                    <button
-                      className="btn btn-primary full-width"
-                      onClick={handleRealSend}
+                  ) : (
+                    <select
+                      value={selectedSmtpId}
+                      onChange={(e) => setSelectedSmtpId(e.target.value)}
+                      className="premium-input smtp-select"
                     >
-                      🚀 Nu Echt Versturen
-                    </button>
+                      {smtpAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name || acc.user} ({acc.host})
+                        </option>
+                      ))}
+                    </select>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Email Style Section */}
+            <div className="form-section">
+              <h2 className="section-title">
+                <span className="section-icon">✨</span>
+                Email Stijl
+              </h2>
+
+              <div className="tone-grid">
+                {toneOptions.map((tone) => (
+                  <label
+                    key={tone.value}
+                    className={`tone-option ${formData.emailTone === tone.value ? 'active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="emailTone"
+                      value={tone.value}
+                      checked={formData.emailTone === tone.value}
+                      onChange={handleChange}
+                      className="tone-radio"
+                    />
+                    <span className="tone-label">{tone.label}</span>
+                    <span className="tone-desc">{tone.desc}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="input-group mt-4">
+                <label className="input-label">
+                  Extra notities voor AI <span className="text-muted">(optioneel)</span>
+                </label>
+                <textarea
+                  name="customNotes"
+                  value={formData.customNotes}
+                  onChange={handleChange}
+                  placeholder="Bijv: Focus op mobiele website, vermeld hun Instagram pagina, ze hebben een nieuwe locatie geopend..."
+                  className="premium-input textarea"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            {/* Subject & Pre-header Section */}
+            <div className="form-section">
+              <h2 className="section-title">
+                <span className="section-icon">📝</span>
+                Onderwerp & Pre-header
+              </h2>
+
+              <div className="form-grid">
+                {/* Subject Line */}
+                <div className="input-group">
+                  <div className="field-header">
+                    <label className="input-label">Onderwerp</label>
+                    <div className="toggle-pills">
+                      <button
+                        type="button"
+                        className={`pill ${!formData.customSubject ? 'active' : ''}`}
+                        onClick={() => setFormData(prev => ({ ...prev, customSubject: '' }))}
+                      >
+                        🎲 Auto
+                      </button>
+                      <button
+                        type="button"
+                        className={`pill ${formData.customSubject ? 'active' : ''}`}
+                        onClick={() => setFormData(prev => ({ ...prev, customSubject: prev.customSubject || ' ' }))}
+                      >
+                        ✏️ Custom
+                      </button>
+                    </div>
+                  </div>
+                  {formData.customSubject ? (
+                    <input
+                      type="text"
+                      name="customSubject"
+                      value={formData.customSubject.trim() ? formData.customSubject : ''}
+                      onChange={handleChange}
+                      placeholder="Bijv: {businessName} - even gecheckt"
+                      className="premium-input"
+                    />
+                  ) : (
+                    <div className="auto-hint">
+                      AI genereert automatisch op basis van email stijl
+                    </div>
+                  )}
+                  <div className="placeholder-hint">
+                    Gebruik: <code>{'{businessName}'}</code>, <code>{'{websiteUrl}'}</code>
+                  </div>
+                </div>
+
+                {/* Pre-header */}
+                <div className="input-group">
+                  <div className="field-header">
+                    <label className="input-label">Pre-header</label>
+                    <div className="toggle-pills">
+                      <button
+                        type="button"
+                        className={`pill ${!formData.customPreheader ? 'active' : ''}`}
+                        onClick={() => setFormData(prev => ({ ...prev, customPreheader: '' }))}
+                      >
+                        🎲 Auto
+                      </button>
+                      <button
+                        type="button"
+                        className={`pill ${formData.customPreheader ? 'active' : ''}`}
+                        onClick={() => setFormData(prev => ({ ...prev, customPreheader: prev.customPreheader || ' ' }))}
+                      >
+                        ✏️ Custom
+                      </button>
+                    </div>
+                  </div>
+                  {formData.customPreheader ? (
+                    <input
+                      type="text"
+                      name="customPreheader"
+                      value={formData.customPreheader.trim() ? formData.customPreheader : ''}
+                      onChange={handleChange}
+                      placeholder="Bijv: Ik zag 3 dingen die bezoekers kosten"
+                      className="premium-input"
+                    />
+                  ) : (
+                    <div className="auto-hint">
+                      AI genereert automatisch op basis van niche
+                    </div>
+                  )}
+                  <div className="placeholder-hint">
+                    Tekst die in inbox preview verschijnt na onderwerp
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="button-group">
+              <button
+                type="submit"
+                name="action"
+                value="preview"
+                disabled={loading}
+                className="premium-button secondary"
+              >
+                👁️ Preview
+              </button>
+              <button
+                type="submit"
+                name="action"
+                value="send"
+                disabled={loading}
+                className={`premium-button ${loading ? 'loading' : ''}`}
+              >
+                {loading ? (
+                  <div className="loading-content">
+                    <div className="robot-wrapper">
+                      <Image
+                        src="/assets/robot-working.png"
+                        alt="Working Robot"
+                        width={30}
+                        height={30}
+                        className="robot-anim"
+                      />
+                    </div>
+                    <span>De robot is aan het typen...</span>
+                  </div>
+                ) : (
+                  <>🚀 Verstuur Email</>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Error Display */}
+          {error && (
+            <div className="alert alert-error">
+              <span className="alert-icon">❌</span>
+              <div className="alert-content">
+                <strong>Fout bij versturen</strong>
+                <p>{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Result Display */}
+          {result && (
+            <div className={`result-card ${result.dryRun ? 'preview' : 'success'}`}>
+              <div className="result-header">
+                {result.dryRun ? (
+                  <>
+                    <span className="result-icon">👁️</span>
+                    <span className="result-title">Preview Modus</span>
+                    <span className="result-badge preview">Niet verstuurd</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="result-icon">✅</span>
+                    <span className="result-title">Email Verstuurd!</span>
+                    <span className="result-badge success">ID: {result.messageId?.slice(0, 8)}...</span>
+                  </>
+                )}
+              </div>
+
+              <div className="result-meta">
+                <span>📧 {result.toEmail}</span>
+                <span>🏢 {result.businessName}</span>
+                {result.usedAI && <span>🤖 AI Generated</span>}
+              </div>
+
+              {/* Site Analysis */}
+              {result.siteAnalysis && (
+                <div className="site-analysis-panel">
+                  <div className="analysis-header">🔍 Website Analyse</div>
+                  <div className="analysis-grid">
+                    {result.siteAnalysis.niche && (
+                      <div className="analysis-item">
+                        🎯 Branche: <strong>{result.siteAnalysis.niche}</strong>
+                      </div>
+                    )}
+                    <div className="analysis-stats">
+                      <span className={result.siteAnalysis.hasSSL ? 'stat-good' : 'stat-bad'}>
+                        {result.siteAnalysis.hasSSL ? '🔒 SSL' : '⚠️ Geen SSL'}
+                      </span>
+                      <span className={result.siteAnalysis.hasMobileViewport ? 'stat-good' : 'stat-bad'}>
+                        {result.siteAnalysis.hasMobileViewport ? '📱 Mobile' : '⚠️ Geen Mobile'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="email-preview">
+                <div className="email-subject">
+                  <span className="email-label">Onderwerp:</span>
+                  {result.subject}
+                </div>
+
+                {result.preheader && (
+                  <div className="email-preheader">
+                    <span className="email-label">Pre-header:</span>
+                    <span className="preheader-text">{result.preheader}</span>
+                  </div>
+                )}
+
+                {result.sections ? (
+                  <div className="email-sections">
+                    <div className="email-section intro">
+                      <FormattedText text={result.sections.intro} />
+                    </div>
+                    <div className="email-section audit">
+                      <span className="section-label error">💡 Gratis Audit</span>
+                      <FormattedText text={result.sections.audit} />
+                    </div>
+                    <div className="email-section boosters">
+                      <span className="section-label success">🔥 SKYE Oplossing</span>
+                      <FormattedText text={result.sections.boosters} />
+                    </div>
+                    <div className="email-section resultaat">
+                      <span className="section-label purple">🚀 Resultaat</span>
+                      <FormattedText text={result.sections.resultaat} />
+                    </div>
+                    <div className="email-section cta">
+                      <span className="section-label warning">📞 CTA</span>
+                      <FormattedText text={result.sections.cta} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="email-body">
+                    <pre>{result.body}</pre>
+                  </div>
+                )}
+              </div>
+
+              {result.dryRun && (
+                <button
+                  className="premium-button w-full mt-4"
+                  onClick={handleRealSend}
+                >
+                  🚀 Nu Echt Versturen
+                </button>
               )}
             </div>
+          )}
+        </div>
 
-            {/* Tips Section */}
-            <div className="tips-card">
-              <h3 className="tips-title">💡 Pro Tips</h3>
-              <ul className="tips-list">
-                <li>Bekijk eerst de website van het bedrijf om context toe te voegen</li>
-                <li>Gebruik de preview modus om de email te checken voor versturen</li>
-                <li>Voeg specifieke details toe in de notities voor betere personalisatie</li>
-                <li>Varieer de email tonen om te zien wat het beste werkt</li>
-              </ul>
+        {/* Logs Panel */}
+        {logs.length > 0 && (
+          <div className="glass-card mt-4">
+            <div className="logs-header">
+              <h3 className="logs-title">📜 Activiteit Logs</h3>
+              <button className="text-secondary hover:text-white" onClick={clearLogs}>
+                🗑️ Wissen
+              </button>
+            </div>
+            <div className="logs-container">
+              {logs.map((log) => (
+                <div key={log.id} className={`log-entry ${log.type}`}>
+                  <span className="log-time">{log.timestamp}</span>
+                  <span className="log-message" dangerouslySetInnerHTML={{
+                    __html: log.message
+                      .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<strong>$1</strong>')
+                      .replace(/(https?:\/\/[^\s]+)/g, '<strong>$1</strong>')
+                  }} />
+                </div>
+              ))}
             </div>
           </div>
-        </main>
+        )}
 
-        {/* Footer */}
-        {/* Footer */}
-        <footer className="footer">
-          <div className="footer-content">
-            <span className="footer-logo">⚡</span>
-            <p>Built in <strong>Wakanda</strong> 🖤💜</p>
-          </div>
-        </footer>
       </div>
 
       <style jsx>{`
-        .app {
-          min-height: 100vh;
-          position: relative;
-          padding-bottom: 40px;
-        }
-
-        .bg-orb {
-          position: fixed;
-          border-radius: 50%;
-          filter: blur(100px);
-          z-index: -1;
-          opacity: 0.6;
-        }
-        .orb-1 {
-          top: -100px;
-          left: -100px;
-          width: 500px;
-          height: 500px;
-          background: radial-gradient(circle, var(--neon-blue), transparent);
-          animation: float 20s infinite ease-in-out;
-        }
-        .orb-2 {
-          bottom: -100px;
-          right: -100px;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, var(--neon-purple), transparent);
-          animation: float 25s infinite ease-in-out reverse;
-        }
-
-        .bg-grid {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-image:
-            linear-gradient(var(--grid-color) 1px, transparent 1px),
-            linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-          background-size: 40px 40px;
-          opacity: 0.2;
-          z-index: -1;
-        }
-
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 32px;
-          margin: 20px 20px 0;
-          border-radius: 20px;
-          z-index: 50;
-        }
-
-        .logo {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 2px;
-        }
-        .logo-container {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .logo-icon { font-size: 28px; }
-        .logo-text {
-          font-family: var(--font-mono);
-          font-weight: 800;
-          font-size: 20px;
-          letter-spacing: -1px;
-        }
-        .logo-badge {
-          font-size: 10px;
-          color: var(--neon-blue);
-          font-family: var(--font-mono);
-          margin-left: 44px;
-          letter-spacing: 2px;
-        }
-
-        .header-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .nav-link {
-          padding: 10px 18px;
-          border-radius: 12px;
-          color: var(--text-secondary);
-          font-weight: 600;
-          font-size: 14px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid transparent;
-        }
-        .nav-link:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--neon-blue);
-          border-color: var(--glass-border);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 243, 255, 0.1);
-        }
-
-        .stats-pill {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 16px;
-          border-radius: 100px;
-          margin-left: 12px;
-        }
-        .stat-value {
-          font-family: var(--font-mono);
-          font-weight: 700;
-          color: var(--success);
-        }
-        .stat-label {
-          font-size: 10px;
-          font-weight: 700;
-          color: var(--text-muted);
-        }
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          background: var(--success);
-          border-radius: 50%;
-          box-shadow: 0 0 10px var(--success);
-          animation: pulse 2s infinite;
-        }
-
-        .main { padding: 40px 20px; }
-
-        .hero {
-          text-align: center;
-          margin-bottom: 60px;
-          position: relative;
-        }
-        .hero-title {
-          font-size: 64px;
-          font-weight: 800;
-          line-height: 1.1;
-          letter-spacing: -2px;
-          margin-bottom: 16px;
-        }
-        .hero-subtitle {
-          font-size: 18px;
-          color: var(--text-secondary);
-          max-width: 600px;
+        .center-text { text-align: center; }
+        .text-pink { color: var(--error); }
+        .text-muted { color: var(--text-muted); }
+        .highlight { color: var(--accent-primary); font-weight: 700; }
+        
+        .main-form-card {
           margin: 0 auto;
-        }
-        .highlight { color: var(--neon-pink); font-weight: 600; }
-
-        .card {
           max-width: 800px;
-          margin: 0 auto;
-          border-radius: 24px;
-          padding: 40px;
-          position: relative;
-          overflow: hidden;
-        }
-        .card::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
-          opacity: 0.5;
         }
 
+        .form-section { margin-bottom: 32px; }
+        
         .section-title {
-          font-size: 20px;
+          font-size: 1.25rem;
           font-weight: 700;
           margin-bottom: 24px;
           display: flex;
@@ -863,104 +665,27 @@ export default function Home() {
           gap: 12px;
           color: var(--text-primary);
         }
-        .section-icon { font-size: 24px; }
-
-        .form-section {
-          margin-bottom: 32px;
-        }
+        .section-icon { font-size: 1.5rem; }
 
         .form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 20px;
         }
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .form-group.full-width { grid-column: 1 / -1; }
-
-        .label {
-          display: block;
-          font-size: 13px;
-          font-weight: 600;
-          margin-bottom: 8px;
-          color: var(--text-secondary);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .required { color: var(--neon-pink); margin-left: 4px; }
-        .optional { color: var(--text-muted); font-size: 11px; margin-left: 6px; text-transform: none; }
-
-        .input, .textarea {
-          width: 100%;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px solid var(--glass-border);
-          border-radius: 12px;
-          padding: 14px 16px;
-          color: var(--text-primary);
-          font-size: 15px;
-          transition: all 0.2s ease;
-        }
-        .input:focus, .textarea:focus {
-          outline: none;
-          border-color: var(--neon-blue);
-          box-shadow: 0 0 0 3px rgba(0, 243, 255, 0.1);
-          background: rgba(0, 0, 0, 0.5);
-        }
-        .input::placeholder, .textarea::placeholder {
-          color: var(--text-muted);
+        
+        @media (max-width: 768px) {
+          .form-grid { grid-template-columns: 1fr; }
         }
 
-        /* SMTP Account Selector */
-        .smtp-select {
-          cursor: pointer;
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 16px center;
-          padding-right: 40px;
-        }
-        .smtp-select option {
-          background: #1a1a2e;
-          color: #fff;
-          padding: 12px;
-        }
-        .smtp-loading {
-          padding: 14px 16px;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px dashed var(--glass-border);
-          border-radius: 12px;
-          color: var(--text-muted);
-          font-size: 14px;
-        }
-        .smtp-warning {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          padding: 14px 16px;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.3);
-          border-radius: 12px;
-          color: #f87171;
-          font-size: 14px;
-        }
-        .smtp-setup-link {
-          color: var(--neon-blue);
-          font-weight: 600;
-          text-decoration: none;
-        }
-        .smtp-setup-link:hover {
-          text-decoration: underline;
-        }
+        .full-width { grid-column: 1 / -1; }
+        
         .tone-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
           gap: 12px;
         }
+
         .tone-option {
-          position: relative;
           background: rgba(255, 255, 255, 0.03);
           border: 1px solid var(--glass-border);
           padding: 16px;
@@ -968,367 +693,251 @@ export default function Home() {
           cursor: pointer;
           transition: all 0.2s ease;
         }
+
         .tone-option:hover {
           background: rgba(255, 255, 255, 0.06);
           border-color: var(--text-muted);
         }
+
         .tone-option.active {
-          background: rgba(0, 243, 255, 0.1);
-          border-color: var(--neon-blue);
-          box-shadow: 0 0 20px rgba(0, 243, 255, 0.1);
+          background: rgba(59, 130, 246, 0.1);
+          border-color: var(--accent-primary);
+          box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
         }
+
         .tone-radio { display: none; }
+        
         .tone-label {
-          display: block;
-          font-weight: 700;
-          margin-bottom: 4px;
-          font-size: 14px;
-        }
-        .tone-desc {
-          display: block;
-          font-size: 11px;
-          color: var(--text-secondary);
-          line-height: 1.4;
-        }
+           display: block;
+           font-weight: 700;
+           margin-bottom: 4px;
+           font-size: 14px;
+         }
+         
+         .tone-desc {
+           display: block;
+           font-size: 11px;
+           color: var(--text-secondary);
+           line-height: 1.4;
+         }
 
-        .subject-preheader-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-        }
-        .custom-field-block {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .field-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        .toggle-pills {
-          display: flex;
-          background: rgba(0,0,0,0.3);
-          padding: 4px;
-          border-radius: 8px;
-          gap: 4px;
-        }
-        .pill {
-          background: transparent;
-          border: none;
-          padding: 6px 12px;
-          border-radius: 6px;
-          color: var(--text-secondary);
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .pill.active {
-          background: var(--glass-highlight);
-          color: var(--text-primary);
-          font-weight: 600;
-        }
-        .auto-hint {
-          padding: 12px 14px;
-          background: rgba(0, 243, 255, 0.1);
-          border: 1px dashed var(--neon-blue);
-          border-radius: 10px;
-          font-size: 13px;
-          color: var(--neon-blue);
-          text-align: center;
-        }
+         .field-header {
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           margin-bottom: 8px;
+         }
 
-        .button-group {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          gap: 16px;
-          margin-top: 32px;
-        }
-        .btn {
-          border: none;
-          border-radius: 14px;
-          padding: 16px 24px;
-          font-weight: 700;
-          font-size: 16px;
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 10px;
-        }
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        .btn-secondary {
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--text-primary);
-          border: 1px solid var(--glass-border);
-        }
-        .btn-secondary:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: var(--text-primary);
-        }
-        .btn-primary {
-          background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
-          color: white;
-          box-shadow: 0 4px 20px rgba(112, 0, 255, 0.4);
-          position: relative;
-          overflow: hidden;
-        }
-        .btn-primary:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(112, 0, 255, 0.6);
-        }
-        .btn.full-width {
-          width: 100%;
-          margin-top: 16px;
-        }
+         .toggle-pills {
+           display: flex;
+           background: rgba(0,0,0,0.2);
+           padding: 2px;
+           border-radius: 8px;
+           gap: 2px;
+         }
 
-        .loading-content {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-        }
+         .pill {
+           background: transparent;
+           border: none;
+           padding: 4px 10px;
+           border-radius: 6px;
+           color: var(--text-secondary);
+           font-size: 11px;
+           cursor: pointer;
+           transition: all 0.2s;
+         }
 
-        .robot-wrapper {
-          display: flex;
-          align-items: center;
-        }
+         .pill.active {
+           background: rgba(255,255,255,0.1);
+           color: var(--text-primary);
+           font-weight: 600;
+         }
 
-        .robot-anim {
-          animation: bounce 0.5s infinite alternate;
-        }
+         .auto-hint {
+           padding: 12px 14px;
+           background: rgba(59, 130, 246, 0.1);
+           border: 1px dashed var(--accent-primary);
+           border-radius: 12px;
+           font-size: 13px;
+           color: var(--accent-primary);
+           text-align: center;
+         }
 
-        @keyframes bounce {
-          from { transform: translateY(0); }
-          to { transform: translateY(-5px); }
-        }
+         .placeholder-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            margin-left: 4px;
+         }
+         
+         .placeholder-hint code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 4px;
+            border-radius: 4px;
+         }
 
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
+         .button-group {
+           display: grid;
+           grid-template-columns: 1fr 2fr;
+           gap: 16px;
+           margin-top: 32px;
+         }
+         
+         .loading-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+         }
+         
+         .robot-anim {
+            animation: bounce 0.5s infinite alternate;
+         }
+         
+         @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+         }
 
-        .alert {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          margin-top: 24px;
-          padding: 16px;
-          border-radius: 12px;
-        }
-        .alert-error {
-          background: rgba(255, 0, 85, 0.1);
-          border: 1px solid rgba(255, 0, 85, 0.3);
-        }
-        .alert-icon { font-size: 18px; flex-shrink: 0; }
-        .alert-content strong {
-          display: block;
-          color: var(--error);
-          margin-bottom: 4px;
-        }
-        .alert-content p {
-          color: var(--text-secondary);
-          font-size: 13px;
-        }
+         /* Result Styles */
+         .result-card {
+            margin-top: 32px;
+            border-radius: 16px;
+            padding: 24px;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--glass-border);
+         }
+         
+         .result-card.preview { border-color: var(--warning); background: rgba(234, 179, 8, 0.05); }
+         .result-card.success { border-color: var(--success); background: rgba(34, 197, 94, 0.05); }
 
-        .result {
-          margin-top: 24px;
-          padding: 20px;
-          border-radius: 16px;
-        }
-        .result-preview {
-          background: rgba(255, 214, 0, 0.1);
-          border: 1px solid rgba(255, 214, 0, 0.3);
-        }
-        .result-success {
-          background: rgba(0, 255, 157, 0.1);
-          border: 1px solid rgba(0, 255, 157, 0.3);
-        }
-        .result-header {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-        .result-icon { font-size: 24px; }
-        .result-title {
-          font-size: 16px;
-          font-weight: 600;
-          flex: 1;
-        }
-        .result-badge {
-          font-size: 11px;
-          font-weight: 500;
-          padding: 4px 10px;
-          border-radius: 6px;
-          font-family: var(--font-mono);
-        }
-        .result-badge.preview {
-          background: rgba(255, 214, 0, 0.2);
-          color: var(--warning);
-        }
-        .result-badge.success {
-          background: rgba(0, 255, 157, 0.2);
-          color: var(--success);
-        }
-        .result-meta {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 16px;
-          font-size: 13px;
-          color: var(--text-secondary);
-        }
+         .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+         }
+         
+         .result-title { font-weight: 700; font-size: 1.1rem; flex: 1; }
+         .result-badge {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.3);
+         }
 
-        .email-preview {
-          background: rgba(0, 0, 0, 0.3);
-          border-radius: 12px;
-          padding: 16px;
-        }
-        .email-label {
-          display: block;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-bottom: 6px;
-        }
-        .email-subject {
-          font-size: 15px;
-          font-weight: 600;
-          margin-bottom: 12px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid var(--glass-border);
-        }
-        .email-preheader {
-          margin-bottom: 16px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--glass-border);
-        }
-        .preheader-text {
-          font-size: 13px;
-          color: var(--text-muted);
-          font-style: italic;
-        }
-        .email-body pre {
-          font-family: var(--font-sans);
-          font-size: 13px;
-          line-height: 1.7;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          color: var(--text-secondary);
-        }
+         .result-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+         }
 
-        .email-sections {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 16px;
-        }
-        .section {
-          padding: 16px;
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid var(--glass-border);
-        }
-        .section-label {
-          display: block;
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 8px;
-          font-weight: 700;
-          color: var(--text-muted);
-        }
-        .section-content {
-          font-size: 13px;
-          line-height: 1.6;
-          color: var(--text-secondary);
-        }
-        .section-content p { margin-bottom: 8px; }
-        .section-content ul { margin: 0 0 8px 0; padding-left: 20px; }
-        .section-content li { margin-bottom: 4px; }
+         .site-analysis-panel {
+            background: rgba(0,0,0,0.2);
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+         }
+         
+         .analysis-header {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            font-weight: 700;
+         }
+         
+         .analysis-grid {
+             display: flex;
+             justify-content: space-between;
+             align-items: center;
+         }
 
-        .section.intro { background: rgba(255, 255, 255, 0.05); }
-        .section.audit { background: rgba(255, 0, 85, 0.05); border-color: rgba(255, 0, 85, 0.2); }
-        .section.audit .section-label { color: var(--error); }
-        .section.boosters { background: rgba(0, 255, 157, 0.05); border-color: rgba(0, 255, 157, 0.2); }
-        .section.boosters .section-label { color: var(--success); }
-        .section.resultaat { background: rgba(112, 0, 255, 0.05); border-color: rgba(112, 0, 255, 0.2); }
-        .section.resultaat .section-label { color: var(--neon-purple); }
-        .section.cta { background: rgba(255, 214, 0, 0.05); border-color: rgba(255, 214, 0, 0.2); }
-        .section.cta .section-label { color: var(--warning); }
+         .stat-good { color: var(--success); margin-left: 12px; font-size: 0.9rem; }
+         .stat-bad { color: var(--error); margin-left: 12px; font-size: 0.9rem; }
 
-        .branche-badge {
-          display: inline-block;
-          padding: 4px 10px;
-          background: rgba(0, 243, 255, 0.1);
-          border: 1px solid rgba(0, 243, 255, 0.3);
-          border-radius: 20px;
-          font-size: 11px;
-          font-weight: 600;
-          color: var(--neon-blue);
-          margin-bottom: 8px;
-        }
+         .email-preview {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--glass-border);
+         }
+         
+         .email-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 8px;
+         }
+         
+         .email-subject {
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 16px;
+         }
+         
+         .email-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+         }
+         
+         .email-section {
+            padding: 16px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+         }
+         
+         .section-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+         }
+         
+         .section-label.error { color: var(--error); }
+         .section-label.success { color: var(--success); }
+         .section-label.purple { color: #d946ef; }
+         .section-label.warning { color: var(--warning); }
 
-        .tips-card {
-          margin-top: 24px;
-          padding: 20px 24px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid var(--glass-border);
-          border-radius: 16px;
-        }
-        .tips-title {
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 12px;
-        }
-        .tips-list {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .tips-list li {
-          font-size: 13px;
-          color: var(--text-secondary);
-          padding-left: 20px;
-          position: relative;
-        }
-        .tips-list li::before {
-          content: "→";
-          position: absolute;
-          left: 0;
-          color: var(--neon-blue);
-        }
+         .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--glass-border);
+         }
+         
+         .logs-container {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 16px 24px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+         }
 
-        .footer {
-          text-align: center;
-          padding: 40px;
-          color: var(--text-muted);
-          font-size: 14px;
-        }
-        .footer-content {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-        }
-        .footer-logo { font-size: 24px; }
-        .heart { color: var(--neon-pink); display: inline-block; animation: pulse 1s infinite; }
+         .log-entry {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 6px;
+         }
 
-        @media (max-width: 768px) {
-          .hero-title { font-size: 40px; }
-          .button-group { grid-template-columns: 1fr; }
-          .header { flex-direction: column; gap: 20px; }
-          .form-grid { grid-template-columns: 1fr; }
-          .form-group.full-width { grid-column: span 1; }
-          .subject-preheader-grid { grid-template-columns: 1fr; }
-        }
+         .log-time { color: var(--text-muted); opacity: 0.6; }
+         .log-message { color: var(--text-secondary); }
+         
+         .log-entry.success .log-message { color: var(--success); }
+         .log-entry.error .log-message { color: var(--error); }
+         .log-entry.warning .log-message { color: var(--warning); }
       `}</style>
-    </>
+    </Layout>
   );
 }
 
@@ -1363,5 +972,5 @@ function FormattedText({ text }) {
     elements.push(<ul key="ul-last">{listItems}</ul>);
   }
 
-  return <div className="section-content">{elements}</div>;
+  return <div className="section-content text-sm leading-relaxed text-secondary">{elements}</div>;
 }

@@ -1,34 +1,34 @@
 ---
 name: casual
-description: Relaxed en friendly
-emoji_limit: 10
+description: Relaxed en vriendelijk
+emoji_limit: 8
 ---
 
 # Style Instructions
-Super relaxed en friendly! Schrijf alsof je een vriend tipt over iets cools.
-Gebruik veel emoji's 🔥🚀✨, informele taal, en korte zinnetjes.
-Mag "haha", "echt", "gewoon" gebruiken. Luchtig maar nog steeds waardevol.
+Chill en vriendelijk! Schrijf alsof je een maat tipt.
+Korte zinnen. Emoji's zijn prima 🔥 Mag "echt", "gewoon", "ff" gebruiken.
+Luchtig maar wel to-the-point.
 
 # Subject Templates
-- Hey {businessName}! Even gekeken.. 👀
-- {businessName} - ff checken dit 🔥
+- Hey {businessName}! Even gekeken 👀
+- {businessName} - check dit ff 🔥
 - Yo {businessName}! Zag wat dingen
 
 # Intro Example
-"Yooo! Keek net naar {websiteUrl} en dacht: dit kan zoveel beter! 🔥 Geen hate, gewoon een tip van een dev die dit vaker ziet."
+"Yo! Keek net naar je site. Viel me wat op. Geen hate, gewoon een tip. 🔥"
 
 # Result Example
-"Serieus, als {nicheLabel} krijg je met een betere site {resultClaim}! 🚀"
+"Serieus, met een betere site krijg je klanten die al sold zijn voordat ze bellen! 🚀"
 
 # CTA Example
-"Zin om ff te bellen? Ik laat je zien wat ik bedoel! 🤙"
+"Ff bellen? Ik laat het je zien! 🤙"
 
 # Audit Points
-- 😬 Site werkt niet lekker op mobiel
-- 🤷 Geen duidelijke "bestel nu" knop
-- 🐌 Beetje traag allemaal
+- 😬 Site werkt matig op mobiel
+- 🤷 Geen duidelijke "klik hier" knop
+- 🐌 Laadt traag
 
 # Solution Points
-- 🔥 Snelle site = blije bezoekers
-- 💪 Duidelijke actieknop = meer sales
-- ✨ Fresh design = instant vertrouwen
+- 🔥 Snelle site = blije mensen
+- 💪 Duidelijke knop = meer verkoop
+- ✨ Fresh look = vertrouwen

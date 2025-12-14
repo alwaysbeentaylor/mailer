@@ -1,0 +1,62 @@
+﻿[dotenv@17.2.3] injecting env (3) from .env.local -- tip: ­ƒøá´©Å  run anywhere with `dotenvx run -- yourcommand`
+­ƒº¬ Testing AI email generation...
+
+API Key: Ô£à Present
+­ƒôñ Sending request to Gemini...
+
+­ƒôÑ Raw AI Response:
+============================================================
+THOUGHTS:
+Als expert in cold email copywriting, is het cruciaal om elk onderdeel van de e-mail te optimaliseren voor maximale impact en conversie, zelfs met placeholder tekst. De structuur die je hebt gekozen is sterk en volgt beproefde principes:
+
+*   **SUBJECT**: Moet direct de aandacht trekken, nieuwsgierigheid wekken of direct waarde communiceren. Voor een test is "Test onderwerp" een placeholder, maar in realiteit zou het gepersonaliseerd, probleemgericht of voordeelgericht zijn (bijv. "Sneller [doel] voor [Bedrijf Naam]?").
+*   **INTRO**: Het doel is om snel relevantie te cre├½ren en aan te tonen dat de e-mail niet willekeurig is. Het moet de ontvanger het gevoel geven dat je hen begrijpt of een gemeenschappelijke basis hebt.
+*   **AUDIT**: Dit is de kern van de personalisatie en probleemidentificatie. Door specifieke pijnpunten of gemiste kansen te benoemen, toon je aan dat je onderzoek hebt gedaan en de ontvanger serieus neemt. Het cre├½ert een "aha!" moment en bouwt geloofwaardigheid op.
+*   **BOOSTERS**: Hier presenteer je concrete oplossingen of unieke waardeproposities die direct inspelen op de ge├»dentificeerde "audit" punten. Het is belangrijk om deze beknopt en voordeelgericht te formuleren, in plaats van alleen productkenmerken te noemen.
+*   **RESULTAAT**: Dit is de payoff. Het kwantificeert of kwalificeert de verwachte uitkomst van de "boosters". Het beantwoordt de vraag: "Wat levert het mij op?" en moet overtuigend zijn, bij voorkeur met cijfers of tastbare voordelen.
+*   **CTA**: Moet kristalhelder, laagdrempelig en specifiek zijn. De ontvanger moet precies weten wat de volgende stap is en hoeveel inspanning het kost. "Bel me!" is direct, maar voor een echte cold email zou een meer specifieke, lage-commitment CTA ("Zullen we kort brainstormen?", "Interesse in een demo van 15 minuten?", "Wil je de casestudy bekijken?") vaak effectiever zijn om de drempel te verlagen.
+
+Deze structuur is effectief omdat het een logische flow volgt: aandacht trekken -> probleem identificeren -> oplossing presenteren -> resultaat beloven -> actie vragen.
+
+EMAIL_CONTENT:
+SUBJECT: Test onderwerp
+
+INTRO:
+Dit is een test intro.
+
+AUDIT:
+- Punt 1
+- Punt 2
+
+BOOSTERS:
+- Oplossing 1
+- Oplossing 2
+
+RESULTAAT:
+Dit is het resultaat.
+
+CTA:
+Bel me!
+============================================================
+
+
+­ƒöì Testing parsing...
+
+Ô£à Found EMAIL_CONTENT block
+
+­ƒôº Parsed Sections:
+-------------------
+intro: Ô£à (22 chars)
+   "Dit is een test intro."
+audit: Ô£à (17 chars)
+   "- Punt 1
+- Punt 2"
+boosters: Ô£à (27 chars)
+   "- Oplossing 1
+- Oplossing 2"
+resultaat: Ô£à (21 chars)
+   "Dit is het resultaat."
+cta: Ô£à (7 chars)
+   "Bel me!"
+
+Ô£à All sections parsed successfully!

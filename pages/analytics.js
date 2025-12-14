@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import Navigation from '../components/Navigation';
+import Layout from '../components/Layout';
 
 export default function Analytics() {
   const [stats, setStats] = useState(null);
@@ -154,191 +155,166 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p>Analytics laden...</p>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-            color: #fff;
-          }
-          .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(255,255,255,0.1);
-            border-top-color: #00A4E8;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
+      <Layout title="Analytics | SKYE">
+        <div className="flex flex-col items-center justify-center h-[50vh]">
+          <div className="spinner text-accent text-4xl mb-4">⚙️</div>
+          <p className="text-secondary">Analytics laden...</p>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <>
-      <Head>
-        <title>Email Analytics | SKYE</title>
-        <meta name="description" content="Email marketing analytics dashboard" />
-      </Head>
-
-      <div className="dashboard">
-        {/* Header */}
-        <Navigation dark={true} />
+    <Layout title="Analytics | SKYE">
+      <div className="page-container">
 
         {/* Page Header */}
-        <div className="page-header">
-          <div className="logo">
-            <span className="logo-text">SKYE</span>
-            <span className="logo-dot"></span>
-            <span className="logo-sub">Analytics</span>
+        <div className="page-header flex justify-between items-center">
+          <div>
+            <h1 className="page-title"><span className="text-gradient">Analytics</span> Dashboard</h1>
+            <p className="page-subtitle">Inzichten en rapportages over je email campagnes.</p>
           </div>
-          <div className="header-actions">
-            <button
-              className={`scan-btn ${scanning ? 'scanning' : ''}`}
-              onClick={scanReplies}
-              disabled={scanning}
-            >
-              {scanning ? '🔄 Scannen...' : '📬 Scan Replies'}
-            </button>
-          </div>
+          <button
+            className={`premium-button ${scanning ? 'opacity-70' : ''}`}
+            onClick={scanReplies}
+            disabled={scanning}
+          >
+            {scanning ? '🔄 Scannen...' : '📬 Scan Replies'}
+          </button>
         </div>
 
         {/* Tabs */}
-        <nav className="tabs">
-          <button
-            className={activeTab === 'overview' ? 'active' : ''}
-            onClick={() => setActiveTab('overview')}
-          >
-            📊 Overzicht
-          </button>
-          <button
-            className={activeTab === 'emails' ? 'active' : ''}
-            onClick={() => setActiveTab('emails')}
-          >
-            📧 Alle Emails
-          </button>
-          <button
-            className={activeTab === 'follow-ups' ? 'active' : ''}
-            onClick={() => setActiveTab('follow-ups')}
-          >
-            ⏰ Follow-ups ({followUps.length})
-          </button>
-          <button
-            className={activeTab === 'settings' ? 'active' : ''}
-            onClick={() => setActiveTab('settings')}
-          >
-            ⚙️ Instellingen
-          </button>
-        </nav>
+        <div className="glass-card p-2 mb-6 flex gap-2">
+          {['overview', 'emails', 'follow-ups', 'settings'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${activeTab === tab ? 'bg-accent/20 text-accent ring-1 ring-accent/50' : 'text-secondary hover:bg-white/5 hover:text-white'}`}
+            >
+              {tab === 'overview' && '📊 Overzicht'}
+              {tab === 'emails' && '📧 Alle Emails'}
+              {tab === 'follow-ups' && `⏰ Follow-ups (${followUps.length})`}
+              {tab === 'settings' && '⚙️ Instellingen'}
+            </button>
+          ))}
+        </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && stats && (
-          <div className="content">
+          <div className="space-y-6">
             {/* Summary Cards */}
-            <div className="stats-grid">
-              <div className="stat-card primary">
-                <div className="stat-icon">📧</div>
-                <div className="stat-value">{stats.summary.totalEmails}</div>
-                <div className="stat-label">Emails Verstuurd</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card border-l-4 border-l-sky-500 text-center">
+                <div className="text-3xl mb-2">📧</div>
+                <div className="text-3xl font-bold">{stats.summary.totalEmails}</div>
+                <div className="text-xs text-secondary uppercase tracking-wider">Emails Verstuurd</div>
               </div>
-              <div className="stat-card success">
-                <div className="stat-icon">👆</div>
-                <div className="stat-value">{stats.summary.totalClicks}</div>
-                <div className="stat-label">Clicks ({stats.summary.clickRate}%)</div>
+              <div className="glass-card border-l-4 border-l-green-500 text-center">
+                <div className="text-3xl mb-2">👆</div>
+                <div className="text-3xl font-bold">{stats.summary.totalClicks}</div>
+                <div className="text-xs text-secondary uppercase tracking-wider">Clicks ({stats.summary.clickRate}%)</div>
               </div>
-              <div className="stat-card info">
-                <div className="stat-icon">💬</div>
-                <div className="stat-value">{stats.summary.totalReplies}</div>
-                <div className="stat-label">Replies ({stats.summary.replyRate}%)</div>
+              <div className="glass-card border-l-4 border-l-blue-500 text-center">
+                <div className="text-3xl mb-2">💬</div>
+                <div className="text-3xl font-bold">{stats.summary.totalReplies}</div>
+                <div className="text-xs text-secondary uppercase tracking-wider">Replies ({stats.summary.replyRate}%)</div>
               </div>
-              <div className="stat-card warning">
-                <div className="stat-icon">⏰</div>
-                <div className="stat-value">{stats.summary.pendingFollowUps}</div>
-                <div className="stat-label">Follow-ups Nodig</div>
+              <div className="glass-card border-l-4 border-l-yellow-500 text-center">
+                <div className="text-3xl mb-2">⏰</div>
+                <div className="text-3xl font-bold">{stats.summary.pendingFollowUps}</div>
+                <div className="text-xs text-secondary uppercase tracking-wider">Follow-ups Nodig</div>
               </div>
             </div>
 
             {/* Charts Section */}
-            <div className="charts-row">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Per Niche */}
-              <div className="chart-card">
-                <h3>📌 Per Niche</h3>
-                <div className="simple-chart">
+              <div className="glass-card">
+                <h3 className="text-lg font-bold mb-4">📌 Per Niche</h3>
+                <div className="space-y-3">
                   {stats.nicheStats.map((item, i) => (
-                    <div key={i} className="chart-row">
-                      <span className="chart-label">{item.niche || 'Onbekend'}</span>
-                      <div className="chart-bar-container">
+                    <div key={i} className="flex items-center gap-4 text-sm">
+                      <span className="w-24 text-secondary truncate" title={item.niche}>{item.niche || 'Onbekend'}</span>
+                      <div className="flex-1 h-6 bg-white/5 rounded overflow-hidden relative">
                         <div
-                          className="chart-bar"
+                          className="h-full bg-gradient-to-r from-sky-500 to-blue-600 flex items-center justify-end px-2 text-[10px] font-bold"
                           style={{ width: `${Math.min((item.total / Math.max(...stats.nicheStats.map(n => n.total))) * 100, 100)}%` }}
                         >
-                          <span className="bar-value">{item.total}</span>
+                          {item.total}
                         </div>
                       </div>
-                      <span className="chart-meta">
+                      <span className="w-20 text-xs text-secondary text-right">
                         {item.clicks || 0} 👆 | {item.replies || 0} 💬
                       </span>
                     </div>
                   ))}
-                  {stats.nicheStats.length === 0 && (
-                    <p className="no-data">Nog geen data</p>
-                  )}
+                  {stats.nicheStats.length === 0 && <p className="text-center text-muted py-4">Nog geen data</p>}
                 </div>
               </div>
 
               {/* Per Tone */}
-              <div className="chart-card">
-                <h3>🎨 Per Email Stijl</h3>
-                <div className="simple-chart">
+              <div className="glass-card">
+                <h3 className="text-lg font-bold mb-4">🎨 Per Email Stijl</h3>
+                <div className="space-y-3">
                   {stats.toneStats.map((item, i) => (
-                    <div key={i} className="chart-row">
-                      <span className="chart-label">{item.email_tone || 'Onbekend'}</span>
-                      <div className="chart-bar-container">
+                    <div key={i} className="flex items-center gap-4 text-sm">
+                      <span className="w-24 text-secondary capitalize">{item.email_tone || 'Onbekend'}</span>
+                      <div className="flex-1 h-6 bg-white/5 rounded overflow-hidden relative">
                         <div
-                          className="chart-bar tone"
+                          className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 flex items-center justify-end px-2 text-[10px] font-bold"
                           style={{ width: `${Math.min((item.total / Math.max(...stats.toneStats.map(t => t.total))) * 100, 100)}%` }}
                         >
-                          <span className="bar-value">{item.total}</span>
+                          {item.total}
                         </div>
                       </div>
-                      <span className="chart-meta">
+                      <span className="w-20 text-xs text-secondary text-right">
                         {item.clicks || 0} 👆 | {item.replies || 0} 💬
                       </span>
                     </div>
                   ))}
-                  {stats.toneStats.length === 0 && (
-                    <p className="no-data">Nog geen data</p>
-                  )}
+                  {stats.toneStats.length === 0 && <p className="text-center text-muted py-4">Nog geen data</p>}
                 </div>
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="chart-card full-width">
-              <h3>📈 Activiteit Afgelopen 7 Dagen</h3>
-              <div className="activity-timeline">
+            <div className="glass-card">
+              <h3 className="text-lg font-bold mb-4">📈 Activiteit Afgelopen 7 Dagen</h3>
+              <div className="flex justify-between items-end h-40 pt-4 px-4 overflow-x-auto gap-4">
                 {stats.recentActivity.map((day, i) => (
-                  <div key={i} className="activity-day">
-                    <div className="day-label">{new Date(day.date).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric' })}</div>
-                    <div className="day-stats">
-                      <span className="sent">{day.sent} 📧</span>
-                      <span className="clicks">{day.clicks || 0} 👆</span>
-                      <span className="replies">{day.replies || 0} 💬</span>
+                  <div key={i} className="flex flex-col items-center gap-2 flex-1 min-w-[60px]">
+                    <div className="flex gap-1 items-end h-full w-full justify-center">
+                      {/* Sent Bar */}
+                      <div className="w-3 bg-white/20 rounded-t relative group h-full max-h-full flex items-end">
+                        <div className="w-full bg-secondary rounded-t" style={{ height: `${Math.min(day.sent * 5, 100)}%` }}></div>
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] opacity-0 group-hover:opacity-100 bg-black/80 px-1 rounded transition-opacity">
+                          {day.sent}
+                        </div>
+                      </div>
+                      {/* Clicks Bar */}
+                      {day.clicks > 0 && (
+                        <div className="w-3 bg-green-500/20 rounded-t relative group h-full max-h-full flex items-end">
+                          <div className="w-full bg-green-500 rounded-t" style={{ height: `${Math.min(day.clicks * 10, 100)}%` }}></div>
+                        </div>
+                      )}
+                      {/* Replies Bar */}
+                      {day.replies > 0 && (
+                        <div className="w-3 bg-blue-500/20 rounded-t relative group h-full max-h-full flex items-end">
+                          <div className="w-full bg-blue-500 rounded-t" style={{ height: `${Math.min(day.replies * 10, 100)}%` }}></div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-secondary whitespace-nowrap">
+                      {new Date(day.date).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric' })}
                     </div>
                   </div>
                 ))}
-                {stats.recentActivity.length === 0 && (
-                  <p className="no-data">Nog geen activiteit</p>
-                )}
+                {stats.recentActivity.length === 0 && <p className="w-full text-center text-muted">Nog geen activiteit</p>}
+              </div>
+              <div className="flex justify-center gap-6 mt-4 text-xs text-secondary">
+                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-secondary rounded-sm"></span> Verzonden</span>
+                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-green-500 rounded-sm"></span> Clicks</span>
+                <span className="flex items-center gap-2"><span className="w-3 h-3 bg-blue-500 rounded-sm"></span> Replies</span>
               </div>
             </div>
           </div>
@@ -346,12 +322,13 @@ export default function Analytics() {
 
         {/* Emails Tab */}
         {activeTab === 'emails' && (
-          <div className="content">
+          <div className="glass-card">
             {/* Filters */}
-            <div className="filters-bar">
+            <div className="flex flex-wrap gap-3 mb-6 p-4 rounded-lg bg-white/5 border border-glass">
               <select
                 value={filters.niche}
                 onChange={e => setFilters(f => ({ ...f, niche: e.target.value }))}
+                className="premium-input text-sm py-2 px-3 w-auto"
               >
                 <option value="">Alle niches</option>
                 {filterOptions.niches.map(n => (
@@ -362,6 +339,7 @@ export default function Analytics() {
               <select
                 value={filters.emailTone}
                 onChange={e => setFilters(f => ({ ...f, emailTone: e.target.value }))}
+                className="premium-input text-sm py-2 px-3 w-auto"
               >
                 <option value="">Alle stijlen</option>
                 {filterOptions.tones.map(t => (
@@ -372,6 +350,7 @@ export default function Analytics() {
               <select
                 value={filters.hasReply}
                 onChange={e => setFilters(f => ({ ...f, hasReply: e.target.value }))}
+                className="premium-input text-sm py-2 px-3 w-auto"
               >
                 <option value="">Alle statussen</option>
                 <option value="true">Met reply</option>
@@ -382,18 +361,20 @@ export default function Analytics() {
                 type="date"
                 value={filters.fromDate}
                 onChange={e => setFilters(f => ({ ...f, fromDate: e.target.value }))}
-                placeholder="Van datum"
+                className="premium-input text-sm py-2 px-3 w-auto"
               />
 
               <input
                 type="date"
                 value={filters.toDate}
                 onChange={e => setFilters(f => ({ ...f, toDate: e.target.value }))}
-                placeholder="Tot datum"
+                className="premium-input text-sm py-2 px-3 w-auto"
               />
 
+              <div className="flex-grow"></div>
+
               <button
-                className="clear-btn"
+                className="premium-button secondary text-xs py-2"
                 onClick={() => {
                   setFilters({ niche: '', emailTone: '', status: '', hasReply: '', fromDate: '', toDate: '' });
                   setSortBy('sent_at');
@@ -402,78 +383,64 @@ export default function Analytics() {
               >
                 ✕ Reset
               </button>
+            </div>
 
-              {/* Sorting controls */}
-              <div className="sort-controls">
-                <span className="sort-label">Sorteren:</span>
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="sent_at">Verzonden</option>
-                  <option value="business_name">Bedrijfsnaam</option>
-                  <option value="click_count">Clicks</option>
-                  <option value="has_reply">Reply</option>
-                  <option value="niche">Niche</option>
-                </select>
-                <button
-                  className={`sort-order-btn ${sortOrder}`}
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  title={sortOrder === 'asc' ? 'Oplopend' : 'Aflopend'}
-                >
-                  {sortOrder === 'asc' ? '↑' : '↓'}
-                </button>
-              </div>
+            <div className="flex justify-end mb-2 text-xs text-secondary items-center gap-2">
+              <span>Sorteren:</span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="bg-transparent border border-glass rounded p-1 text-white"
+              >
+                <option value="sent_at">Verzonden</option>
+                <option value="business_name">Bedrijfsnaam</option>
+                <option value="click_count">Clicks</option>
+                <option value="has_reply">Reply</option>
+                <option value="niche">Niche</option>
+              </select>
+              <button
+                className="w-6 h-6 flex items-center justify-center bg-white/5 rounded hover:bg-white/10"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </button>
             </div>
 
             {/* Email Table */}
-            <div className="table-container">
-              <table className="emails-table">
+            <div className="table-container max-h-[600px] overflow-auto">
+              <table className="premium-table">
                 <thead>
                   <tr>
-                    <th className={`sortable ${sortBy === 'sent_at' ? 'active' : ''}`} onClick={() => { setSortBy('sent_at'); setSortOrder(sortBy === 'sent_at' && sortOrder === 'desc' ? 'asc' : 'desc'); }}>
-                      Verzonden {sortBy === 'sent_at' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th className={`sortable ${sortBy === 'business_name' ? 'active' : ''}`} onClick={() => { setSortBy('business_name'); setSortOrder(sortBy === 'business_name' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                      Bedrijf {sortBy === 'business_name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
+                    <th>Verzonden</th>
+                    <th>Bedrijf</th>
                     <th>Email</th>
-                    <th className={`sortable ${sortBy === 'niche' ? 'active' : ''}`} onClick={() => { setSortBy('niche'); setSortOrder(sortBy === 'niche' && sortOrder === 'asc' ? 'desc' : 'asc'); }}>
-                      Niche {sortBy === 'niche' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
+                    <th>Niche</th>
                     <th>Stijl</th>
-                    <th className={`sortable ${sortBy === 'click_count' ? 'active' : ''}`} onClick={() => { setSortBy('click_count'); setSortOrder(sortBy === 'click_count' && sortOrder === 'desc' ? 'asc' : 'desc'); }}>
-                      Clicks {sortBy === 'click_count' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
-                    <th className={`sortable ${sortBy === 'has_reply' ? 'active' : ''}`} onClick={() => { setSortBy('has_reply'); setSortOrder(sortBy === 'has_reply' && sortOrder === 'desc' ? 'asc' : 'desc'); }}>
-                      Reply {sortBy === 'has_reply' && (sortOrder === 'asc' ? '↑' : '↓')}
-                    </th>
+                    <th>Clicks</th>
+                    <th>Reply</th>
                     <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {emails.map(email => (
-                    <tr key={email.id} className={email.has_reply ? 'replied' : ''}>
-                      <td>{formatDate(email.sent_at)}</td>
-                      <td className="business-name">{email.business_name}</td>
-                      <td className="email-addr">{email.to_email}</td>
-                      <td><span className="badge niche">{email.niche || '-'}</span></td>
-                      <td><span className="badge tone">{email.email_tone || '-'}</span></td>
-                      <td className="clicks-cell">
+                    <tr key={email.id} className={email.has_reply ? 'bg-blue-500/10' : ''}>
+                      <td className="whitespace-nowrap">{formatDate(email.sent_at)}</td>
+                      <td className="font-bold">{email.business_name}</td>
+                      <td className="text-secondary text-sm">{email.to_email}</td>
+                      <td><span className="badge secondary text-[10px]">{email.niche || '-'}</span></td>
+                      <td><span className="badge secondary text-[10px] uppercase">{email.email_tone || '-'}</span></td>
+                      <td>
                         {email.click_count > 0 ? (
-                          <span className="click-count">👆 {email.click_count}</span>
+                          <span className="badge success">👆 {email.click_count}</span>
                         ) : '-'}
                       </td>
                       <td>
                         {email.has_reply ? (
-                          <span className="reply-yes">✅ Ja</span>
-                        ) : (
-                          <span className="reply-no">-</span>
-                        )}
+                          <span className="badge badg-info bg-blue-500 text-white">✅ Ja</span>
+                        ) : '-'}
                       </td>
                       <td>
-                        <span className={`status-badge ${email.status}`}>
+                        <span className={`badge ${email.status === 'sent' ? 'badge-success' : 'badge-error'}`}>
                           {email.status}
                         </span>
                       </td>
@@ -481,7 +448,7 @@ export default function Analytics() {
                   ))}
                   {emails.length === 0 && (
                     <tr>
-                      <td colSpan="8" className="no-data">Geen emails gevonden</td>
+                      <td colSpan="8" className="text-center py-8 text-secondary">Geen emails gevonden</td>
                     </tr>
                   )}
                 </tbody>
@@ -492,39 +459,39 @@ export default function Analytics() {
 
         {/* Follow-ups Tab */}
         {activeTab === 'follow-ups' && (
-          <div className="content">
-            <div className="followup-header">
-              <h2>⏰ Follow-up Nodig</h2>
-              <p>Emails zonder reactie na {settings.follow_up_days || 3} dagen</p>
+          <div className="space-y-4">
+            <div className="glass-card mb-4 border-l-4 border-yellow-500">
+              <h2 className="text-lg font-bold">⏰ Follow-up Nodig</h2>
+              <p className="text-secondary">Emails zonder reactie na {settings.follow_up_days || 3} dagen</p>
             </div>
 
             {followUps.length === 0 ? (
-              <div className="empty-state">
-                <span className="empty-icon">🎉</span>
-                <h3>Alles is bijgewerkt!</h3>
-                <p>Er zijn geen follow-ups nodig op dit moment.</p>
+              <div className="glass-card text-center py-12">
+                <span className="text-4xl mb-4 block">🎉</span>
+                <h3 className="text-xl font-bold mb-2">Alles is bijgewerkt!</h3>
+                <p className="text-secondary">Er zijn geen follow-ups nodig op dit moment.</p>
               </div>
             ) : (
-              <div className="followup-list">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {followUps.map(email => (
-                  <div key={email.id} className="followup-card">
-                    <div className="followup-main">
-                      <div className="followup-business">{email.business_name}</div>
-                      <div className="followup-email">{email.to_email}</div>
-                      <div className="followup-meta">
-                        <span className="badge">{email.niche || 'Onbekend'}</span>
-                        <span className="days-ago">{daysSince(email.sent_at)} dagen geleden</span>
+                  <div key={email.id} className="glass-card p-4 flex flex-col">
+                    <div className="flex-1 mb-4">
+                      <div className="font-bold text-lg mb-1">{email.business_name}</div>
+                      <div className="text-sm text-secondary mb-3">{email.to_email}</div>
+                      <div className="flex gap-2">
+                        <span className="badge secondary text-xs">{email.niche || 'Onbekend'}</span>
+                        <span className="badge warning text-xs">{daysSince(email.sent_at)} dagen geleden</span>
                       </div>
                     </div>
-                    <div className="followup-actions">
+                    <div className="flex gap-3 mt-auto">
                       <a
                         href={`mailto:${email.to_email}?subject=Re: ${email.subject || 'Opvolging'}`}
-                        className="action-btn email"
+                        className="premium-button flex-1 text-sm justify-center"
                       >
                         📧 Email
                       </a>
                       <button
-                        className="action-btn done"
+                        className="premium-button secondary flex-1 text-sm justify-center text-success border-success/30 hover:bg-success/10"
                         onClick={() => markFollowUpDone(email.id)}
                       >
                         ✓ Klaar
@@ -539,671 +506,53 @@ export default function Analytics() {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="content">
-            <div className="settings-card">
-              <h2>⚙️ Instellingen</h2>
+          <div className="glass-card max-w-2xl mx-auto">
+            <h2 className="text-xl font-bold mb-6">⚙️ Instellingen</h2>
 
-              <div className="setting-row">
-                <div className="setting-info">
-                  <label>Follow-up dagen</label>
-                  <p>Na hoeveel dagen zonder reactie verschijnt een email in de follow-up lijst?</p>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center pb-6 border-b border-glass">
+                <div>
+                  <label className="font-bold block mb-1">Follow-up Dagen</label>
+                  <p className="text-xs text-secondary">Na hoeveel dagen verschijnt een email in de lijst?</p>
                 </div>
-                <div className="setting-control">
+                <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min="1"
                     max="30"
                     value={settings.follow_up_days || 3}
                     onChange={e => updateSetting('follow_up_days', e.target.value)}
+                    className="premium-input w-20 text-center"
                   />
-                  <span>dagen</span>
+                  <span className="text-sm">dagen</span>
                 </div>
               </div>
 
-              <div className="setting-row info">
-                <div className="setting-info">
-                  <label>Gmail Reply Scanner</label>
-                  <p>
-                    Klik op "Scan Replies" in de header om je Gmail inbox te scannen voor antwoorden.
-                    <br />
-                    <small>⚠️ Je moet een token met gmail.readonly scope hebben.
-                      Run <code>node get-gmail-refresh-token.js</code> als scanning niet werkt.</small>
-                  </p>
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <h4 className="font-bold mb-2 flex items-center gap-2">📧 Gmail Reply Scanner</h4>
+                <p className="text-sm text-secondary mb-4">
+                  Klik op "Scan Replies" in de header om je Gmail inbox te scannen voor antwoorden.
+                </p>
+                <div className="text-xs font-mono bg-black/30 p-2 rounded">
+                  node get-gmail-refresh-token.js
                 </div>
               </div>
 
-              <div className="setting-row info">
-                <div className="setting-info">
-                  <label>Click Tracking</label>
-                  <p>
-                    Clicks op CTA knoppen en links worden automatisch getrackt.
-                    <br />
-                    <small>Zorg dat <code>NEXT_PUBLIC_BASE_URL</code> in .env.local correct is ingesteld voor productie.</small>
-                  </p>
-                </div>
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <h4 className="font-bold mb-2 flex items-center gap-2">👆 Click Tracking</h4>
+                <p className="text-sm text-secondary">
+                  Clicks op CTA knoppen en links worden automatisch getrackt.
+                  Zorg dat <code>NEXT_PUBLIC_BASE_URL</code> in je .env.local correct is ingesteld.
+                </p>
               </div>
             </div>
           </div>
         )}
-
-        <style jsx>{`
-          .dashboard {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-            color: #fff;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-          }
-
-          .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 24px 32px 8px;
-            /* background: rgba(0,0,0,0.3); */
-            /* border-bottom: 1px solid rgba(255,255,255,0.1); */
-          }
-
-          .logo {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .logo-text {
-            font-size: 24px;
-            font-weight: 800;
-            letter-spacing: 0.06em;
-          }
-
-          .logo-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #00A4E8;
-          }
-
-          .logo-sub {
-            font-size: 14px;
-            color: #888;
-            margin-left: 8px;
-          }
-
-          .header-actions {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-          }
-
-          .scan-btn {
-            background: linear-gradient(135deg, #00A4E8, #0077b6);
-            border: none;
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          .scan-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0,164,232,0.4);
-          }
-
-          .scan-btn.scanning {
-            opacity: 0.7;
-            cursor: wait;
-          }
-
-          .back-link {
-            color: #888;
-            text-decoration: none;
-            font-size: 14px;
-          }
-
-          .back-link:hover {
-            color: #fff;
-          }
-
-          .tabs {
-            display: flex;
-            gap: 4px;
-            padding: 16px 32px;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .tabs button {
-            background: transparent;
-            border: none;
-            color: #888;
-            padding: 12px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
-          }
-
-          .tabs button:hover {
-            background: rgba(255,255,255,0.05);
-            color: #fff;
-          }
-
-          .tabs button.active {
-            background: rgba(0,164,232,0.2);
-            color: #00A4E8;
-          }
-
-          .content {
-            padding: 32px;
-          }
-
-          /* Stats Grid */
-          .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 32px;
-          }
-
-          .stat-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 24px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .stat-card.primary { border-color: #00A4E8; }
-          .stat-card.success { border-color: #22c55e; }
-          .stat-card.info { border-color: #3b82f6; }
-          .stat-card.warning { border-color: #f59e0b; }
-
-          .stat-icon {
-            font-size: 32px;
-            margin-bottom: 12px;
-          }
-
-          .stat-value {
-            font-size: 36px;
-            font-weight: 700;
-          }
-
-          .stat-label {
-            color: #888;
-            margin-top: 8px;
-            font-size: 14px;
-          }
-
-          /* Charts */
-          .charts-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-          }
-
-          .chart-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .chart-card.full-width {
-            grid-column: 1 / -1;
-          }
-
-          .chart-card h3 {
-            margin: 0 0 20px 0;
-            font-size: 16px;
-            color: #fff;
-          }
-
-          .chart-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 12px;
-          }
-
-          .chart-label {
-            width: 100px;
-            font-size: 13px;
-            color: #aaa;
-            text-transform: capitalize;
-          }
-
-          .chart-bar-container {
-            flex: 1;
-            height: 24px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            overflow: hidden;
-          }
-
-          .chart-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #00A4E8, #0077b6);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 8px;
-            min-width: 30px;
-          }
-
-          .chart-bar.tone {
-            background: linear-gradient(90deg, #9333ea, #7c3aed);
-          }
-
-          .bar-value {
-            font-size: 11px;
-            font-weight: 600;
-            color: #fff;
-          }
-
-          .chart-meta {
-            width: 100px;
-            font-size: 12px;
-            color: #666;
-            text-align: right;
-          }
-
-          .activity-timeline {
-            display: flex;
-            gap: 16px;
-            overflow-x: auto;
-            padding: 8px 0;
-          }
-
-          .activity-day {
-            flex-shrink: 0;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 16px 20px;
-            text-align: center;
-            min-width: 100px;
-          }
-
-          .day-label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 12px;
-          }
-
-          .day-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 13px;
-          }
-
-          .day-stats .sent { color: #00A4E8; }
-          .day-stats .clicks { color: #22c55e; }
-          .day-stats .replies { color: #3b82f6; }
-
-          /* Filters */
-          .filters-bar {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-          }
-
-          .filters-bar select,
-          .filters-bar input {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            padding: 10px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-          }
-
-          .filters-bar input[type="date"] {
-            color-scheme: dark;
-          }
-
-          .clear-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #888;
-            padding: 10px 14px;
-            border-radius: 8px;
-            cursor: pointer;
-          }
-
-          .clear-btn:hover {
-            border-color: #f87171;
-            color: #f87171;
-          }
-
-          /* Sort Controls */
-          .sort-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-            background: rgba(0,164,232,0.1);
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(0,164,232,0.2);
-          }
-
-          .sort-label {
-            color: #888;
-            font-size: 13px;
-          }
-
-          .sort-select {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-          }
-
-          .sort-order-btn {
-            background: rgba(0,164,232,0.3);
-            border: none;
-            color: #00A4E8;
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-
-          .sort-order-btn:hover {
-            background: rgba(0,164,232,0.5);
-            transform: scale(1.1);
-          }
-
-          /* Table */
-          .table-container {
-            overflow-x: auto;
-          }
-
-          .emails-table {
-            width: 100%;
-            border-collapse: collapse;
-          }
-
-          .emails-table th,
-          .emails-table td {
-            padding: 14px 16px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .emails-table th {
-            color: #888;
-            font-weight: 500;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-
-          .emails-table th.sortable {
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.2s;
-          }
-
-          .emails-table th.sortable:hover {
-            color: #00A4E8;
-            background: rgba(0,164,232,0.1);
-          }
-
-          .emails-table th.sortable.active {
-            color: #00A4E8;
-            background: rgba(0,164,232,0.15);
-          }
-
-          .emails-table tr.replied {
-            background: rgba(34,197,94,0.1);
-          }
-
-          .business-name {
-            font-weight: 600;
-          }
-
-          .email-addr {
-            color: #888;
-            font-size: 13px;
-          }
-
-          .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 500;
-          }
-
-          .badge.niche {
-            background: rgba(0,164,232,0.2);
-            color: #00A4E8;
-          }
-
-          .badge.tone {
-            background: rgba(147,51,234,0.2);
-            color: #a855f7;
-          }
-
-          .click-count {
-            color: #22c55e;
-            font-weight: 600;
-          }
-
-          .reply-yes {
-            color: #22c55e;
-          }
-
-          .reply-no {
-            color: #666;
-          }
-
-          .status-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-            text-transform: capitalize;
-          }
-
-          .status-badge.sent {
-            background: rgba(59,130,246,0.2);
-            color: #3b82f6;
-          }
-
-          .status-badge.replied {
-            background: rgba(34,197,94,0.2);
-            color: #22c55e;
-          }
-
-          .no-data {
-            text-align: center;
-            color: #666;
-            padding: 40px !important;
-          }
-
-          /* Follow-ups */
-          .followup-header {
-            margin-bottom: 24px;
-          }
-
-          .followup-header h2 {
-            margin: 0 0 8px 0;
-          }
-
-          .followup-header p {
-            color: #888;
-            margin: 0;
-          }
-
-          .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-          }
-
-          .empty-icon {
-            font-size: 64px;
-          }
-
-          .empty-state h3 {
-            margin: 20px 0 8px 0;
-          }
-
-          .empty-state p {
-            color: #888;
-          }
-
-          .followup-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-
-          .followup-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 20px 24px;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .followup-business {
-            font-weight: 600;
-            font-size: 16px;
-          }
-
-          .followup-email {
-            color: #888;
-            font-size: 14px;
-            margin: 4px 0;
-          }
-
-          .followup-meta {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-top: 8px;
-          }
-
-          .days-ago {
-            color: #f59e0b;
-            font-size: 13px;
-          }
-
-          .followup-actions {
-            display: flex;
-            gap: 8px;
-          }
-
-          .action-btn {
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: inline-block;
-          }
-
-          .action-btn.email {
-            background: rgba(0,164,232,0.2);
-            color: #00A4E8;
-          }
-
-          .action-btn.done {
-            background: rgba(34,197,94,0.2);
-            color: #22c55e;
-          }
-
-          .action-btn:hover {
-            transform: translateY(-2px);
-          }
-
-          /* Settings */
-          .settings-card {
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            padding: 32px;
-            border: 1px solid rgba(255,255,255,0.1);
-            max-width: 600px;
-          }
-
-          .settings-card h2 {
-            margin: 0 0 24px 0;
-          }
-
-          .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-          }
-
-          .setting-row.info {
-            display: block;
-          }
-
-          .setting-info label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 4px;
-          }
-
-          .setting-info p {
-            color: #888;
-            font-size: 13px;
-            margin: 0;
-          }
-
-          .setting-info small {
-            color: #666;
-          }
-
-          .setting-info code {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-          }
-
-          .setting-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-          }
-
-          .setting-control input[type="number"] {
-            width: 60px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 14px;
-            text-align: center;
-          }
-
-          .setting-control span {
-            color: #888;
-            font-size: 14px;
-          }
-        `}</style>
       </div>
-    </>
+
+      <style jsx>{`
+         /* Custom specific styles if needed */
+      `}</style>
+    </Layout>
   );
 }

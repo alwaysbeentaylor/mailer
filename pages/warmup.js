@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import Navigation from '../components/Navigation';
+import Layout from '../components/Layout';
 import WarmupStatus from '../components/WarmupStatus';
 import WarmupWizard from '../components/WarmupWizard';
 import { getSmtpAccounts } from '../utils/campaignStore';
@@ -78,60 +79,59 @@ export default function WarmupPage() {
   };
 
   return (
-    <>
-      <Head>
-        <title>🔥 Warm-up | SKYE Mail Agent</title>
-      </Head>
-
-      <div className="container">
-        <Navigation dark={true} />
-
-        <header className="page-header">
-          <h1>🔥 Email Warm-up</h1>
-          <p>Beheer de opwarm-status van je SMTP accounts</p>
-        </header>
+    <Layout title="Warm-up | SKYE Mail Agent">
+      <div className="page-container">
+        <div className="page-header">
+          <h1 className="page-title">🔥 Email Warm-up</h1>
+          <p className="page-subtitle">Beheer de reputatie en opwarm-status van je SMTP accounts.</p>
+        </div>
 
         {accounts.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-icon">📭</span>
-            <h2>Geen SMTP accounts</h2>
-            <p>Voeg eerst SMTP accounts toe om warm-up te configureren</p>
-            <Link href="/settings" className="btn btn-primary">
-              ⚙️ Ga naar Settings
+          <div className="glass-card text-center py-16">
+            <span className="text-6xl block mb-6">📭</span>
+            <h2 className="text-2xl font-bold mb-2">Geen SMTP accounts</h2>
+            <p className="text-secondary mb-8">Voeg eerst SMTP accounts toe om warm-up te configureren</p>
+            <Link href="/settings">
+              <button className="premium-button">⚙️ Ga naar Settings</button>
             </Link>
           </div>
         ) : (
-          <div className="accounts-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-12">
             {accounts.map(account => {
               const summary = warmupData[account.id] || {};
               const isEditing = editingLimit === account.id;
 
               return (
-                <div key={account.id} className="account-card">
-                  <div className="account-header">
-                    <div className="account-info">
-                      <h3>{account.name || account.user}</h3>
-                      <span className="account-email">{account.user}</span>
+                <div key={account.id} className="glass-card flex flex-col h-full bg-[#0d0d1a] border-glass">
+                  <div className="flex justify-between items-start mb-4 border-b border-glass pb-4">
+                    <div>
+                      <h3 className="font-bold text-lg truncate pr-2">{account.name || 'Account'}</h3>
+                      <span className="text-xs text-secondary">{account.user}</span>
                     </div>
-                    <span className={`account-badge ${account.active ? 'active' : 'inactive'}`}>
+                    <span className={`badge ${account.active ? 'badge-success' : 'badge-warning'}`}>
                       {account.active ? '● Actief' : '○ Inactief'}
                     </span>
                   </div>
 
                   {showWizard === account.id ? (
-                    <WarmupWizard
-                      onComplete={(settings) => handleSetupComplete(account.id, settings)}
-                      onCancel={() => setShowWizard(null)}
-                    />
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                      <WarmupWizard
+                        onComplete={(settings) => {
+                          handleSetupComplete(account.id, settings);
+                          setShowWizard(null);
+                        }}
+                        onCancel={() => setShowWizard(null)}
+                      />
+                    </div>
                   ) : (
-                    <>
+                    <div className="flex-1 flex flex-col">
                       <WarmupStatus summary={summary} />
 
                       {/* Custom Limit Override */}
                       {summary.enabled && !summary.isComplete && (
-                        <div className="override-section">
+                        <div className="mt-4 p-3 bg-white/5 rounded-lg border border-glass">
                           {isEditing ? (
-                            <div className="override-input">
+                            <div className="flex gap-2">
                               <input
                                 type="number"
                                 min="1"
@@ -139,11 +139,13 @@ export default function WarmupPage() {
                                 value={customLimitValue}
                                 onChange={(e) => setCustomLimitValue(e.target.value)}
                                 placeholder="Nieuw limiet"
+                                className="premium-input text-sm py-1 px-2 flex-1"
+                                autoFocus
                               />
-                              <button onClick={() => handleOverrideLimit(account.id)} className="btn-sm btn-primary">
+                              <button onClick={() => handleOverrideLimit(account.id)} className="premium-button text-xs py-1 px-3">
                                 ✓
                               </button>
-                              <button onClick={() => setEditingLimit(null)} className="btn-sm btn-secondary">
+                              <button onClick={() => setEditingLimit(null)} className="premium-button secondary text-xs py-1 px-3">
                                 ✕
                               </button>
                             </div>
@@ -153,54 +155,62 @@ export default function WarmupPage() {
                                 setEditingLimit(account.id);
                                 setCustomLimitValue(summary.dailyLimit?.toString() || '');
                               }}
-                              className="btn-text"
+                              className="text-xs text-secondary hover:text-accent flex items-center gap-1 w-full"
                             >
-                              ✏️ Override dagelijks limiet
+                              ✏️ Pas dagelijks limiet aan
                             </button>
                           )}
                         </div>
                       )}
 
                       {/* Controls */}
-                      <div className="account-controls">
+                      <div className="mt-auto pt-4 space-y-3">
                         {!summary.enabled ? (
                           <button
                             onClick={() => setShowWizard(account.id)}
-                            className="btn btn-primary"
+                            className="premium-button w-full bg-gradient-to-r from-orange-500 to-red-600"
                           >
                             🔥 Warm-up Starten
                           </button>
-                        ) : summary.paused ? (
-                          <button onClick={() => handleResume(account.id)} className="btn btn-success">
-                            ▶️ Hervatten
-                          </button>
-                        ) : !summary.isComplete ? (
-                          <button onClick={() => handlePause(account.id)} className="btn btn-warning">
-                            ⏸️ Pauzeren
-                          </button>
-                        ) : null}
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3">
+                            {summary.paused ? (
+                              <button onClick={() => handleResume(account.id)} className="premium-button w-full from-green-600 to-green-700">
+                                ▶️ Hervatten
+                              </button>
+                            ) : !summary.isComplete ? (
+                              <button onClick={() => handlePause(account.id)} className="premium-button secondary w-full text-warning border-warning/30 hover:bg-warning/10">
+                                ⏸️ Pauzeren
+                              </button>
+                            ) : (
+                              <div className="text-center text-success font-bold py-2 col-span-2">Klaar!</div>
+                            )}
 
-                        {summary.enabled && (
-                          <button onClick={() => handleDisable(account.id)} className="btn btn-danger-text">
-                            Warm-up Uitschakelen
-                          </button>
+                            <button onClick={() => handleDisable(account.id)} className="premium-button secondary w-full text-muted hover:text-error text-xs">
+                              🛑 Stoppen
+                            </button>
+                          </div>
                         )}
                       </div>
 
                       {/* Stats */}
                       {summary.enabled && (
-                        <div className="account-stats">
-                          <div className="stat">
-                            <span className="stat-value">{summary.totalSent || 0}</span>
-                            <span className="stat-label">Totaal verzonden</span>
+                        <div className="flex justify-between mt-4 pt-4 border-t border-glass text-center">
+                          <div>
+                            <div className="text-xl font-bold text-accent">{summary.totalSent || 0}</div>
+                            <div className="text-[10px] text-secondary uppercase">Totaal</div>
                           </div>
-                          <div className="stat">
-                            <span className="stat-value">{summary.daysRemaining || 0}</span>
-                            <span className="stat-label">Dagen resterend</span>
+                          <div>
+                            <div className="text-xl font-bold text-white">{summary.daysRemaining || 0}</div>
+                            <div className="text-[10px] text-secondary uppercase">Dagen</div>
+                          </div>
+                          <div>
+                            <div className="text-xl font-bold text-success">{Math.round(summary.reputationScore || 100)}%</div>
+                            <div className="text-[10px] text-secondary uppercase">Score</div>
                           </div>
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               );
@@ -209,317 +219,32 @@ export default function WarmupPage() {
         )}
 
         {/* Info Section */}
-        <div className="info-section">
-          <h3>💡 Over Email Warm-up</h3>
-          <p>
+        <div className="glass-card">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">💡 Over Email Warm-up</h3>
+          <p className="text-secondary mb-6 max-w-3xl">
             Email warm-up is het proces van geleidelijk het volume van verzonden emails verhogen
-            vanaf een nieuwe email account. Dit helpt om een goede reputatie op te bouwen bij
-            email providers zoals Gmail en Outlook, zodat je emails niet in spam belanden.
+            vanaf een nieuw email account. Dit helpt om een goede reputatie op te bouwen bij
+            email providers zoals Gmail en Outlook, zodat je emails niet in de spam belanden.
           </p>
-          <div className="info-grid">
-            <div className="info-item">
-              <span className="info-icon">🐢</span>
-              <strong>Voorzichtig</strong>
-              <span>8 weken, start met 3/dag</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-white/5 rounded-xl border border-glass flex flex-col items-center text-center">
+              <span className="text-3xl mb-2">🐢</span>
+              <strong className="text-white block mb-1">Voorzichtig</strong>
+              <span className="text-xs text-secondary">8 weken, start met 3/dag</span>
             </div>
-            <div className="info-item">
-              <span className="info-icon">🚶</span>
-              <strong>Standaard</strong>
-              <span>4 weken, start met 10/dag</span>
+            <div className="p-4 bg-white/5 rounded-xl border border-glass flex flex-col items-center text-center border-accent/30 shadow-[0_0_15px_rgba(0,164,232,0.1)]">
+              <span className="text-3xl mb-2">🚶</span>
+              <strong className="text-accent block mb-1">Standaard</strong>
+              <span className="text-xs text-secondary">4 weken, start met 10/dag</span>
             </div>
-            <div className="info-item">
-              <span className="info-icon">🏃</span>
-              <strong>Agressief</strong>
-              <span>2 weken, start met 20/dag</span>
+            <div className="p-4 bg-white/5 rounded-xl border border-glass flex flex-col items-center text-center">
+              <span className="text-3xl mb-2">🏃</span>
+              <strong className="text-white block mb-1">Agressief</strong>
+              <span className="text-xs text-secondary">2 weken, start met 20/dag</span>
             </div>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-
-        .page-header {
-          margin-bottom: 32px;
-          padding: 24px 32px;
-          background: rgba(26, 26, 46, 0.6);
-          border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(12px);
-        }
-
-        .page-header h1 {
-          margin: 0;
-          color: #fff;
-          font-size: 28px;
-        }
-
-        .page-header p {
-          margin: 8px 0 0;
-          color: #94a3b8;
-        }
-
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          background: #1a1a2e;
-          border-radius: 16px;
-        }
-
-        .empty-icon {
-          font-size: 48px;
-          display: block;
-          margin-bottom: 16px;
-        }
-
-        .empty-state h2 {
-          color: #fff;
-          margin: 0 0 8px;
-        }
-
-        .empty-state p {
-          color: #888;
-          margin: 0 0 20px;
-        }
-
-        .accounts-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-          gap: 20px;
-          margin-bottom: 40px;
-        }
-
-        .account-card {
-          background: #0d0d1a;
-          border: 1px solid #2a2a4e;
-          border-radius: 16px;
-          padding: 20px;
-        }
-
-        .account-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 16px;
-        }
-
-        .account-info h3 {
-          margin: 0;
-          color: #fff;
-          font-size: 16px;
-        }
-
-        .account-email {
-          color: #888;
-          font-size: 13px;
-        }
-
-        .account-badge {
-          font-size: 12px;
-          padding: 4px 10px;
-          border-radius: 12px;
-        }
-
-        .account-badge.active {
-          background: #14532d;
-          color: #22c55e;
-        }
-
-        .account-badge.inactive {
-          background: #374151;
-          color: #9ca3af;
-        }
-
-        .override-section {
-          margin-top: 12px;
-        }
-
-        .override-input {
-          display: flex;
-          gap: 8px;
-          align-items: center;
-        }
-
-        .override-input input {
-          width: 100px;
-          padding: 8px 12px;
-          border: 1px solid #3a3a5e;
-          border-radius: 6px;
-          background: #1a1a2e;
-          color: #fff;
-        }
-
-        .btn-sm {
-          padding: 8px 12px;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: 600;
-        }
-
-        .btn-sm.btn-primary {
-          background: #00A4E8;
-          color: #fff;
-        }
-
-        .btn-sm.btn-secondary {
-          background: #3a3a5e;
-          color: #fff;
-        }
-
-        .btn-text {
-          background: none;
-          border: none;
-          color: #888;
-          cursor: pointer;
-          font-size: 13px;
-        }
-
-        .btn-text:hover {
-          color: #00A4E8;
-        }
-
-        .account-controls {
-          display: flex;
-          gap: 10px;
-          margin-top: 16px;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          padding: 10px 18px;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .btn-primary {
-          background: #00A4E8;
-          color: #fff;
-        }
-
-        .btn-primary:hover {
-          background: #0090cc;
-        }
-
-        .btn-success {
-          background: #22c55e;
-          color: #fff;
-        }
-
-        .btn-warning {
-          background: #f59e0b;
-          color: #fff;
-        }
-
-        .btn-danger-text {
-          background: none;
-          color: #888;
-        }
-
-        .btn-danger-text:hover {
-          color: #ef4444;
-        }
-
-        .account-stats {
-          display: flex;
-          gap: 24px;
-          margin-top: 16px;
-          padding-top: 16px;
-          border-top: 1px solid #2a2a4e;
-        }
-
-        .stat {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .stat-value {
-          font-size: 20px;
-          font-weight: 700;
-          color: #00A4E8;
-        }
-
-        .stat-label {
-          font-size: 12px;
-          color: #888;
-        }
-
-        .info-section {
-          background: #1a1a2e;
-          border-radius: 16px;
-          padding: 24px;
-        }
-
-        .info-section h3 {
-          margin: 0 0 12px;
-          color: #fff;
-        }
-
-        .info-section p {
-          color: #aaa;
-          line-height: 1.6;
-          margin: 0 0 20px;
-        }
-
-        .info-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-        }
-
-        .info-item {
-          background: #0d0d1a;
-          padding: 16px;
-          border-radius: 10px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          text-align: center;
-        }
-
-        .info-icon {
-          font-size: 24px;
-          margin-bottom: 8px;
-        }
-
-        .info-item strong {
-          color: #fff;
-          margin-bottom: 4px;
-        }
-
-        .info-item span:last-child {
-          color: #888;
-          font-size: 13px;
-        }
-
-        @media (max-width: 768px) {
-          .accounts-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .info-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
-
-      <style jsx global>{`
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: #0a0a14;
-          color: #fff;
-          font-family: 'Inter', -apple-system, sans-serif;
-        }
-      `}</style>
-    </>
+    </Layout>
   );
 }

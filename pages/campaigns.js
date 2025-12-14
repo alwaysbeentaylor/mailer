@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import Navigation from "../components/Navigation";
+import Layout from "../components/Layout";
 import {
   getCampaigns,
   getCampaign,
@@ -11,7 +10,8 @@ import {
   deleteCampaign,
   getSmtpAccounts,
   getNextSmtpAccount,
-  advanceSmtpIndex
+  advanceSmtpIndex,
+  saveSmtpAccounts
 } from "../utils/campaignStore";
 import { canSendEmail, incrementDailySent, getWarmupSummary } from "../utils/warmupStore";
 
@@ -24,6 +24,7 @@ export default function Campaigns() {
   const [currentEmailIndex, setCurrentEmailIndex] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState('idle'); // idle, connecting, connected, error
   const [logs, setLogs] = useState([]);
+  const [viewingEmail, setViewingEmail] = useState(null); // Email being previewed
   const abortRef = useRef(false);
   const logsEndRef = useRef(null);
 
@@ -49,6 +50,17 @@ export default function Campaigns() {
   const loadData = () => {
     setCampaigns(getCampaigns());
     setSmtpAccounts(getSmtpAccounts());
+
+    // Sync SMTP accounts from API to ensure we have latest data (esp. for new accounts)
+    fetch('/api/smtp-accounts')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.accounts) {
+          saveSmtpAccounts(data.accounts);
+          setSmtpAccounts(data.accounts);
+        }
+      })
+      .catch(err => console.error('Failed to sync SMTP accounts:', err));
   };
 
   const addLog = (message, type = 'info') => {
@@ -173,7 +185,8 @@ export default function Campaigns() {
             customSubject: campaign.customSubject,
             customPreheader: campaign.customPreheader,
             sessionPrompt: campaign.sessionPrompt,
-            smtpConfig: smtpAccount
+            smtpConfig: smtpAccount,
+            smtpAccountId: smtpAccount.id
           })
         });
 
@@ -184,7 +197,11 @@ export default function Campaigns() {
             status: 'sent',
             sentAt: new Date().toISOString(),
             smtpUsed: smtpAccount.name || smtpAccount.host,
-            emailId: result.emailId
+            emailId: result.emailId,
+            // Store generated content for viewing later
+            generatedSubject: result.subject,
+            generatedBody: result.body,
+            generatedSections: result.sections
           });
           // Update warm-up counter
           incrementDailySent(smtpAccount.id);
@@ -280,26 +297,14 @@ export default function Campaigns() {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusBadge = (status) => {
     switch (status) {
-      case 'running': return '#22c55e';
-      case 'paused': return '#f59e0b';
-      case 'completed': return '#06b6d4';
-      case 'stopped': return '#ef4444';
-      case 'error': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'pending': return '⏳ Klaar om te starten';
-      case 'running': return '🔄 Actief';
-      case 'paused': return '⏸️ Gepauzeerd';
-      case 'completed': return '✅ Voltooid';
-      case 'stopped': return '⏹️ Gestopt';
-      case 'error': return '❌ Fout';
-      default: return status;
+      case 'running': return <span className="badge badge-success">🔄 Actief</span>;
+      case 'paused': return <span className="badge badge-warning">⏸️ Gepauzeerd</span>;
+      case 'completed': return <span className="badge badge-info">✅ Voltooid</span>;
+      case 'stopped': return <span className="badge badge-error">⏹️ Gestopt</span>;
+      case 'error': return <span className="badge badge-error">❌ Fout</span>;
+      default: return <span className="badge badge-info opacity-70">⏳ Klaar</span>;
     }
   };
 
@@ -308,157 +313,147 @@ export default function Campaigns() {
     : 0;
 
   return (
-    <>
-      <Head>
-        <title>Campagnes | SKYE Mail Agent</title>
-      </Head>
+    <Layout title="Campagnes | SKYE Mail Agent">
+      <div className="flex gap-6 h-[calc(100vh-100px)] items-stretch">
 
-      <div className="container">
-        {/* Navigation */}
-        {/* Navigation */}
-        <Navigation dark={true} />
+        {/* Sidebar - Campaign List */}
+        <aside className="w-80 flex-shrink-0 flex flex-col gap-4">
+          <div className="glass-card flex-1 flex flex-col overflow-hidden p-0">
+            <div className="p-4 border-b border-glass">
+              <h2 className="text-lg font-bold">📋 Campagnes</h2>
+            </div>
 
-        <div className="layout">
-          {/* Sidebar - Campaign List */}
-          <aside className="sidebar">
-            <h2>📋 Campagnes</h2>
-
-            {campaigns.length === 0 ? (
-              <div className="empty-sidebar">
-                <p>Geen campagnes</p>
-                <Link href="/batch" className="btn-link">
-                  Ga naar Batch →
-                </Link>
-              </div>
-            ) : (
-              <div className="campaign-list">
-                {campaigns.map(camp => (
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {campaigns.length === 0 ? (
+                <div className="text-center py-8 opacity-50">
+                  <div className="text-2xl mb-2">📭</div>
+                  <p className="text-sm">Geen campagnes</p>
+                  <Link href="/batch" className="text-accent hover:underline text-xs mt-2 block">
+                    Ga naar Batch →
+                  </Link>
+                </div>
+              ) : (
+                campaigns.map(camp => (
                   <div
                     key={camp.id}
-                    className={`campaign-item ${selectedCampaign?.id === camp.id ? 'selected' : ''}`}
                     onClick={() => selectCampaign(camp)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all border border-transparent hover:border-glass hover:bg-white/5 ${selectedCampaign?.id === camp.id ? 'bg-accent/10 border-accent' : ''}`}
                   >
-                    <div className="campaign-item-header">
-                      <span className="campaign-name">{camp.name}</span>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-sm truncate pr-2">{camp.name}</span>
                       <button
-                        className="delete-btn"
+                        className="text-muted hover:text-error transition-colors"
                         onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(camp.id); }}
                       >
                         🗑️
                       </button>
                     </div>
-                    <div className="campaign-meta">
-                      <span style={{ color: getStatusColor(camp.status) }}>
-                        {getStatusLabel(camp.status)}
-                      </span>
+                    <div className="flex justify-between items-center text-xs text-secondary mb-2">
+                      {getStatusBadge(camp.status)}
                       <span>{camp.sent}/{camp.total}</span>
                     </div>
-                    <div className="mini-progress">
+                    <div className="h-1 bg-secondary rounded-full overflow-hidden">
                       <div
-                        className="mini-progress-bar"
+                        className="h-full bg-accent transition-all duration-300"
                         style={{ width: `${(camp.sent / camp.total) * 100}%` }}
                       />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </aside>
+                ))
+              )}
+            </div>
+          </div>
+        </aside>
 
-          {/* Main Content */}
-          <main className="main-content">
-            {!selectedCampaign ? (
-              <div className="select-prompt">
-                <h2>👈 Selecteer een campagne</h2>
-                <p>Of maak een nieuwe campagne via de Batch pagina</p>
-              </div>
-            ) : (
-              <>
-                {/* Campaign Header */}
-                <div className="campaign-header">
+        {/* Main Content */}
+        <main className="flex-1 min-w-0 flex flex-col gap-6 overflow-hidden">
+          {!selectedCampaign ? (
+            <div className="glass-card flex-1 flex flex-col items-center justify-center text-center opacity-50">
+              <div className="text-4xl mb-4">👈</div>
+              <h2 className="text-xl font-bold mb-2">Selecteer een campagne</h2>
+              <p className="text-secondary">Of maak een nieuwe campagne via de Batch pagina</p>
+            </div>
+          ) : (
+            <>
+              {/* Header & Stats */}
+              <div className="glass-card">
+                <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h1>{selectedCampaign.name}</h1>
-                    <p className="campaign-date">
+                    <h1 className="text-2xl font-bold mb-1">{selectedCampaign.name}</h1>
+                    <p className="text-xs text-secondary">
                       Aangemaakt: {new Date(selectedCampaign.createdAt).toLocaleString('nl-NL')}
                     </p>
                   </div>
-                  <div className="status-badge" style={{ background: getStatusColor(selectedCampaign.status) }}>
-                    {getStatusLabel(selectedCampaign.status)}
+                  <div>{getStatusBadge(selectedCampaign.status)}</div>
+                </div>
+
+                {/* Big Progress */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-4xl font-bold text-highlight">{progress}%</span>
+                    <span className="text-secondary text-sm">{selectedCampaign.sent}/{selectedCampaign.total} emails</span>
+                  </div>
+                  <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-accent to-purple-500 transition-all duration-500" style={{ width: `${progress}%` }} />
                   </div>
                 </div>
 
-                {/* Progress Panel */}
-                <div className="progress-panel">
-                  <div className="progress-header">
-                    <span className="progress-text">{progress}%</span>
-                    <span className="progress-count">{selectedCampaign.sent}/{selectedCampaign.total} emails</span>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="p-3 rounded-lg bg-white/5 border border-glass text-center">
+                    <div className="text-2xl font-bold text-success">{selectedCampaign.sent}</div>
+                    <div className="text-xs text-secondary uppercase tracking-wider">Verzonden</div>
                   </div>
-                  <div className="progress-bar-container">
-                    <div className="progress-bar" style={{ width: `${progress}%` }} />
+                  <div className="p-3 rounded-lg bg-white/5 border border-glass text-center">
+                    <div className="text-2xl font-bold text-error">{selectedCampaign.failed}</div>
+                    <div className="text-xs text-secondary uppercase tracking-wider">Mislukt</div>
                   </div>
-
-                  <div className="stats-row">
-                    <div className="stat">
-                      <span className="stat-value sent">{selectedCampaign.sent}</span>
-                      <span className="stat-label">Verzonden</span>
+                  <div className="p-3 rounded-lg bg-white/5 border border-glass text-center">
+                    <div className="text-2xl font-bold text-warning">{selectedCampaign.pending}</div>
+                    <div className="text-xs text-secondary uppercase tracking-wider">Wachtend</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-white/5 border border-glass text-center">
+                    <div className={`text-sm font-bold mt-1 ${connectionStatus === 'error' ? 'text-error' : connectionStatus === 'connected' ? 'text-success' : 'text-secondary'}`}>
+                      {connectionStatus === 'connected' ? '📡 Verbonden' : connectionStatus === 'error' ? '❌ Fout' : connectionStatus === 'connecting' ? '🔄 ...' : '🔌 Idle'}
                     </div>
-                    <div className="stat">
-                      <span className="stat-value failed">{selectedCampaign.failed}</span>
-                      <span className="stat-label">Mislukt</span>
-                    </div>
-                    <div className="stat">
-                      <span className="stat-value pending">{selectedCampaign.pending}</span>
-                      <span className="stat-label">Wachtend</span>
-                    </div>
-                  </div>
-
-                  {/* Connection Status */}
-                  <div className={`connection-status ${connectionStatus}`}>
-                    {connectionStatus === 'idle' && '🔌 Niet verbonden'}
-                    {connectionStatus === 'connecting' && '🔄 Verbinden...'}
-                    {connectionStatus === 'connected' && '📡 Verbonden'}
-                    {connectionStatus === 'error' && '❌ Verbindingsfout'}
-                  </div>
-
-                  {/* Controls */}
-                  <div className="controls">
-                    {!isRunning ? (
-                      <button className="btn-start" onClick={startCampaign}>
-                        ▶️ {selectedCampaign.status === 'paused' ? 'Hervatten' : 'Starten'}
-                      </button>
-                    ) : (
-                      <button className="btn-pause" onClick={pauseCampaign}>
-                        ⏸️ Pauzeren
-                      </button>
-                    )}
-                    <button
-                      className="btn-stop"
-                      onClick={stopCampaign}
-                      disabled={!isRunning}
-                    >
-                      ⏹️ Stop
-                    </button>
-                    <button
-                      className="btn-retry"
-                      onClick={retryFailed}
-                      disabled={isRunning || selectedCampaign.failed === 0}
-                    >
-                      🔄 Retry Mislukte ({selectedCampaign.failed})
-                    </button>
+                    <div className="text-xs text-secondary uppercase tracking-wider mt-1">Status</div>
                   </div>
                 </div>
 
-                {/* Logs */}
-                <div className="logs-panel">
-                  <h3>📜 Logs</h3>
-                  <div className="logs-container">
+                {/* Controls */}
+                <div className="flex gap-3">
+                  {!isRunning ? (
+                    <button onClick={startCampaign} className="premium-button flex-1">
+                      ▶️ {selectedCampaign.status === 'paused' ? 'Hervatten' : 'Starten'}
+                    </button>
+                  ) : (
+                    <button onClick={pauseCampaign} className="premium-button secondary flex-1 border-warning text-warning">
+                      ⏸️ Pauzeren
+                    </button>
+                  )}
+                  <button onClick={stopCampaign} disabled={!isRunning} className="premium-button secondary text-error border-error">
+                    ⏹️ Stop
+                  </button>
+                  <button onClick={retryFailed} disabled={isRunning || selectedCampaign.failed === 0} className="premium-button secondary">
+                    🔄 Retry Mislukte
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 flex gap-6 min-h-0">
+                {/* Logs Panel */}
+                <div className="glass-card flex-1 flex flex-col p-0 overflow-hidden min-w-0">
+                  <div className="p-3 border-b border-glass bg-white/5">
+                    <h3 className="font-bold text-sm">📜 Logs</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-xs max-h-[400px]">
                     {logs.length === 0 ? (
-                      <p className="logs-empty">Nog geen activiteit...</p>
+                      <div className="text-center opacity-30 py-4">Nog geen activiteit...</div>
                     ) : (
                       logs.map((log, i) => (
-                        <div key={i} className={`log-entry ${log.type}`}>
-                          <span className="log-time">{log.timestamp}</span>
-                          <span className="log-message">{log.message}</span>
+                        <div key={i} className={`flex gap-2 ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'warning' ? 'text-yellow-400' : 'text-gray-400'}`}>
+                          <span className="opacity-50 min-w-[60px]">{log.timestamp}</span>
+                          <span>{log.message}</span>
                         </div>
                       ))
                     )}
@@ -466,421 +461,120 @@ export default function Campaigns() {
                   </div>
                 </div>
 
-                {/* Email List */}
-                <div className="emails-panel">
-                  <h3>📧 Emails ({selectedCampaign.total})</h3>
-                  <div className="emails-table-container">
-                    <table className="emails-table">
+                {/* Emails List */}
+                <div className="glass-card flex-[2] flex flex-col p-0 overflow-hidden min-w-0">
+                  <div className="p-3 border-b border-glass bg-white/5 flex justify-between items-center">
+                    <h3 className="font-bold text-sm">📧 Emails ({selectedCampaign.total})</h3>
+                  </div>
+                  <div className="flex-1 overflow-auto table-container">
+                    <table className="premium-table">
                       <thead>
                         <tr>
-                          <th>#</th>
+                          <th className="w-10">#</th>
                           <th>Email</th>
-                          <th>Bedrijf</th>
                           <th>Status</th>
                           <th>SMTP</th>
-                          <th>Tijd</th>
+                          <th className="w-20">Actie</th>
                         </tr>
                       </thead>
                       <tbody>
                         {selectedCampaign.emails.map((email, idx) => (
-                          <tr
-                            key={idx}
-                            className={`${email.status} ${idx === currentEmailIndex && isRunning ? 'current' : ''}`}
-                          >
-                            <td>{idx + 1}</td>
-                            <td>{email.email}</td>
-                            <td>{email.businessName || '-'}</td>
+                          <tr key={idx} className={idx === currentEmailIndex && isRunning ? 'bg-accent/10' : ''}>
+                            <td className="text-secondary">{idx + 1}</td>
                             <td>
-                              <span className={`email-status ${email.status}`}>
-                                {email.status === 'sent' && '✅'}
-                                {email.status === 'failed' && '❌'}
-                                {email.status === 'sending' && '📤'}
-                                {email.status === 'pending' && '⏳'}
-                                {' '}{email.status}
-                                {email.error && <span className="error-tooltip" title={email.error}>ℹ️</span>}
-                              </span>
+                              <div className="font-bold text-sm">{email.email}</div>
+                              {email.businessName && <div className="text-xs text-secondary">{email.businessName}</div>}
                             </td>
-                            <td>{email.smtpUsed || '-'}</td>
-                            <td>{email.sentAt ? new Date(email.sentAt).toLocaleTimeString('nl-NL') : '-'}</td>
+                            <td>
+                              <div className="flex items-center gap-2">
+                                {email.status === 'sent' && <span className="status-dot active"></span>}
+                                {email.status === 'failed' && <span className="status-dot error"></span>}
+                                {email.status === 'sending' && <span className="spinner text-accent">⚙️</span>}
+                                {email.status === 'pending' && <span className="status-dot inactive"></span>}
+                                <span className="capitalize text-xs">{email.status}</span>
+                              </div>
+                              {email.error && <div className="text-xs text-error mt-1 truncate max-w-[150px]" title={email.error}>{email.error}</div>}
+                            </td>
+                            <td className="text-xs text-secondary">{email.smtpUsed || '-'}</td>
+                            <td>
+                              {email.status === 'sent' && email.generatedSubject && (
+                                <button onClick={() => setViewingEmail(email)} className="text-accent hover:text-white text-xs border border-accent/30 rounded px-2 py-1">
+                                  👁️ Bekijk
+                                </button>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 </div>
-              </>
-            )}
-          </main>
-        </div>
+              </div>
+            </>
+          )}
+        </main>
       </div>
 
+      {/* Email Preview Modal */}
+      {viewingEmail && (
+        <div className="modal-overlay" onClick={() => setViewingEmail(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-glass flex justify-between items-center">
+              <h2 className="text-lg font-bold">📧 Verstuurde Email</h2>
+              <button onClick={() => setViewingEmail(null)} className="text-secondary hover:text-white">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div className="p-3 rounded bg-white/5">
+                  <span className="block text-xs text-secondary uppercase">Aan</span>
+                  <span className="font-bold">{viewingEmail.email}</span>
+                </div>
+                <div className="p-3 rounded bg-white/5">
+                  <span className="block text-xs text-secondary uppercase">Bedrijf</span>
+                  <span className="font-bold">{viewingEmail.businessName || '-'}</span>
+                </div>
+                <div className="p-3 rounded bg-white/5">
+                  <span className="block text-xs text-secondary uppercase">Verstuurd</span>
+                  <span className="font-bold">{viewingEmail.sentAt ? new Date(viewingEmail.sentAt).toLocaleString('nl-NL') : '-'}</span>
+                </div>
+                <div className="p-3 rounded bg-white/5">
+                  <span className="block text-xs text-secondary uppercase">Via</span>
+                  <span className="font-bold">{viewingEmail.smtpUsed || '-'}</span>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <span className="text-xs text-secondary uppercase">Onderwerp</span>
+                <div className="text-lg font-bold">{viewingEmail.generatedSubject}</div>
+              </div>
+
+              <div className="space-y-4">
+                {viewingEmail.generatedSections ? (
+                  <>
+                    {Object.entries(viewingEmail.generatedSections).map(([key, content]) => (
+                      content && (
+                        <div key={key} className="p-4 rounded border border-glass bg-white/5">
+                          <div className="text-xs text-accent uppercase font-bold mb-2">{key}</div>
+                          <div className="whitespace-pre-line text-sm leading-relaxed">{content}</div>
+                        </div>
+                      )
+                    ))}
+                  </>
+                ) : (
+                  <div className="whitespace-pre-line text-sm leading-relaxed p-4 rounded border border-glass bg-white/5">
+                    {viewingEmail.generatedBody || 'Geen content beschikbaar'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
-        .container {
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-
-
-
-        .layout {
-          display: grid;
-          grid-template-columns: 280px 1fr;
-          gap: 24px;
-          min-height: calc(100vh - 120px);
-        }
-
-        .sidebar {
-          background: #1a1a2e;
-          border-radius: 12px;
-          padding: 20px;
-          height: fit-content;
-          position: sticky;
-          top: 20px;
-        }
-
-        .sidebar h2 {
-          margin: 0 0 16px 0;
-          color: #fff;
-          font-size: 18px;
-        }
-
-        .empty-sidebar {
-          text-align: center;
-          color: #888;
-          padding: 20px 0;
-        }
-
-        .btn-link {
-          display: inline-block;
-          margin-top: 12px;
-          color: #00A4E8;
-          text-decoration: none;
-        }
-
-        .campaign-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .campaign-item {
-          background: #0d0d1a;
-          border: 1px solid #2a2a4e;
-          border-radius: 8px;
-          padding: 12px;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .campaign-item:hover { border-color: #00A4E8; }
-        .campaign-item.selected { border-color: #00A4E8; background: #1a1a3e; }
-
-        .campaign-item-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .campaign-name {
-          font-weight: 600;
-          color: #fff;
-          font-size: 14px;
-        }
-
-        .delete-btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          opacity: 0.5;
-          transition: opacity 0.2s;
-        }
-
-        .delete-btn:hover { opacity: 1; }
-
-        .campaign-meta {
-          display: flex;
-          justify-content: space-between;
-          font-size: 12px;
-          color: #888;
-          margin-top: 6px;
-        }
-
-        .mini-progress {
-          height: 3px;
-          background: #2a2a4e;
-          border-radius: 2px;
-          margin-top: 8px;
-          overflow: hidden;
-        }
-
-        .mini-progress-bar {
-          height: 100%;
-          background: #00A4E8;
-          transition: width 0.3s;
-        }
-
-        .main-content {
-          min-width: 0;
-        }
-
-        .select-prompt {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 300px;
-          text-align: center;
-          color: #888;
-        }
-
-        .select-prompt h2 { color: #fff; margin-bottom: 8px; }
-
-        .campaign-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 24px;
-        }
-
-        .campaign-header h1 {
-          margin: 0;
-          color: #fff;
-        }
-
-        .campaign-date {
-          color: #888;
-          font-size: 14px;
-          margin-top: 4px;
-        }
-
-        .status-badge {
-          padding: 8px 16px;
-          border-radius: 20px;
-          color: #fff;
-          font-weight: 600;
-          font-size: 14px;
-        }
-
-        .progress-panel {
-          background: #1a1a2e;
-          border-radius: 12px;
-          padding: 24px;
-          margin-bottom: 20px;
-        }
-
-        .progress-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .progress-text {
-          font-size: 32px;
-          font-weight: 700;
-          color: #00A4E8;
-        }
-
-        .progress-count {
-          color: #888;
-          font-size: 16px;
-          align-self: flex-end;
-        }
-
-        .progress-bar-container {
-          height: 12px;
-          background: #2a2a4e;
-          border-radius: 6px;
-          overflow: hidden;
-          margin-bottom: 20px;
-        }
-
-        .progress-bar {
-          height: 100%;
-          background: linear-gradient(90deg, #00A4E8, #06b6d4);
-          transition: width 0.5s ease;
-        }
-
-        .stats-row {
-          display: flex;
-          gap: 24px;
-          margin-bottom: 16px;
-        }
-
-        .stat {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .stat-value {
-          font-size: 24px;
-          font-weight: 700;
-        }
-
-        .stat-value.sent { color: #22c55e; }
-        .stat-value.failed { color: #ef4444; }
-        .stat-value.pending { color: #f59e0b; }
-
-        .stat-label {
-          font-size: 12px;
-          color: #888;
-        }
-
-        .connection-status {
-          padding: 8px 12px;
-          border-radius: 8px;
-          font-size: 14px;
-          margin-bottom: 16px;
-          display: inline-block;
-        }
-
-        .connection-status.idle { background: #374151; color: #9ca3af; }
-        .connection-status.connecting { background: #1e3a5f; color: #60a5fa; }
-        .connection-status.connected { background: #14532d; color: #22c55e; }
-        .connection-status.error { background: #450a0a; color: #ef4444; }
-
-        .controls {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        .controls button {
-          padding: 12px 24px;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .controls button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .btn-start { background: #22c55e; color: #fff; }
-        .btn-start:hover:not(:disabled) { background: #16a34a; }
-        
-        .btn-pause { background: #f59e0b; color: #fff; }
-        .btn-pause:hover { background: #d97706; }
-        
-        .btn-stop { background: #ef4444; color: #fff; }
-        .btn-stop:hover:not(:disabled) { background: #dc2626; }
-        
-        .btn-retry { background: #3b82f6; color: #fff; }
-        .btn-retry:hover:not(:disabled) { background: #2563eb; }
-
-        .logs-panel {
-          background: #1a1a2e;
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 20px;
-        }
-
-        .logs-panel h3 {
-          margin: 0 0 12px 0;
-          color: #fff;
-        }
-
-        .logs-container {
-          background: #0d0d1a;
-          border-radius: 8px;
-          padding: 12px;
-          max-height: 200px;
-          overflow-y: auto;
-          font-family: monospace;
-          font-size: 13px;
-        }
-
-        .logs-empty {
-          color: #666;
-          margin: 0;
-        }
-
-        .log-entry {
-          display: flex;
-          gap: 12px;
-          padding: 4px 0;
-        }
-
-        .log-time {
-          color: #666;
-          flex-shrink: 0;
-        }
-
-        .log-entry.success .log-message { color: #22c55e; }
-        .log-entry.error .log-message { color: #ef4444; }
-        .log-entry.warning .log-message { color: #f59e0b; }
-        .log-entry.info .log-message { color: #ccc; }
-
-        .emails-panel {
-          background: #1a1a2e;
-          border-radius: 12px;
-          padding: 20px;
-        }
-
-        .emails-panel h3 {
-          margin: 0 0 12px 0;
-          color: #fff;
-        }
-
-        .emails-table-container {
-          overflow-x: auto;
-        }
-
-        .emails-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 14px;
-        }
-
-        .emails-table th,
-        .emails-table td {
-          text-align: left;
-          padding: 10px;
-          border-bottom: 1px solid #2a2a4e;
-        }
-
-        .emails-table th {
-          color: #888;
-          font-weight: 500;
-          font-size: 12px;
-          text-transform: uppercase;
-        }
-
-        .emails-table td {
-          color: #ccc;
-        }
-
-        .emails-table tr.current {
-          background: rgba(0, 164, 232, 0.1);
-        }
-
-        .emails-table tr.sent td { color: #22c55e; }
-        .emails-table tr.failed td { color: #ef4444; }
-
-        .email-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .error-tooltip {
-          cursor: help;
-        }
-
-        @media (max-width: 900px) {
-          .layout {
-            grid-template-columns: 1fr;
-          }
-          
-          .sidebar {
-            position: static;
-          }
-        }
+        /* Custom scrollbar override for this specific layout if needed */
+        .overflow-y-auto::-webkit-scrollbar { width: 6px; }
       `}</style>
-    </>
+    </Layout>
   );
 }
