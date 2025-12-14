@@ -156,7 +156,22 @@ export default function Home() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.details || data.error || "Onbekende fout");
+        // Handle structured error response
+        let errorMessage = "Onbekende fout";
+        if (data.details) {
+          errorMessage = data.details;
+        } else if (data.error) {
+          if (typeof data.error === 'object') {
+            errorMessage = data.error.message || JSON.stringify(data.error);
+            // Hint toevoegen als die er is
+            if (data.error.hint) {
+              errorMessage += ` (${data.error.hint})`;
+            }
+          } else {
+            errorMessage = data.error;
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       setResult(data);
