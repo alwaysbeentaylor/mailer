@@ -17,11 +17,11 @@ const GENERIC_EMAIL_PREFIXES = [
     'marketing', 'jobs', 'vacature', 'hr', 'algemeen', 'receptie', 'team'
 ];
 
-// AI Helper Function
+// AI Helper Function with Status Reporting
 async function enhanceWithGemini(analysis, domain) {
     if (!process.env.GEMINI_API_KEY) {
         console.log('   ⚠️ Geen GEMINI_API_KEY, sla AI over.');
-        return analysis;
+        return { ...analysis, aiStatus: 'skipped_missing_key' };
     }
 
     try {
@@ -70,12 +70,13 @@ async function enhanceWithGemini(analysis, domain) {
             uniqueObservations: [
                 ...(aiData.uniqueObservations || []),
                 ...(analysis.uniqueObservations || [])
-            ].slice(0, 5) // Keep top 5 hooks
+            ].slice(0, 5), // Keep top 5 hooks
+            aiStatus: 'success'
         };
 
     } catch (e) {
         console.error("   ❌ AI Enrichment Error:", e.message);
-        return analysis; // Fallback to original scraper data
+        return { ...analysis, aiStatus: `error: ${e.message}` }; // Fallback to original scraper data with error flag
     }
 }
 
@@ -238,7 +239,8 @@ export default async function handler(req, res) {
                 knowledgeFile: aiEnhancedAnalysis.knowledgeFile || 'overig.md', // Pointer naar juiste niche file
                 allEmails: foundEmails, // Alle gevonden emails (voor referentie)
                 summary: aiEnhancedAnalysis.summary, // AI Summary
-                uniqueObservations: aiEnhancedAnalysis.uniqueObservations // AI + Scraper Hooks
+                uniqueObservations: aiEnhancedAnalysis.uniqueObservations, // AI + Scraper Hooks
+                aiStatus: aiEnhancedAnalysis.aiStatus // DEBUG STATUS
             }
         });
 
