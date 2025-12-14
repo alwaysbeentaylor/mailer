@@ -16,7 +16,8 @@ import {
   wrapError
 } from '../../utils/error-handler';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// genAI instantiation moved to inside functions to prevent cold boot crashes if API key is missing
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Cache voor geladen data
 let _cachedNiches = null;
@@ -250,6 +251,8 @@ ${sessionPrompt ? `\nEXTRA INSTRUCTIE: ${sessionPrompt}` : ''}
   let text = "";
   let usedModel = "gemini-1.5-flash"; // Primary model
 
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
   try {
     // Attempt 1: Gemini 1.5 Flash (Fast & reliable)
     const model = genAI.getGenerativeModel({
@@ -460,6 +463,7 @@ Voorbeelden:
 `;
 
   try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: validationPrompt }] }], // Correct content alignment
