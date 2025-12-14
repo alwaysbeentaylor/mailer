@@ -1,5 +1,7 @@
+
 import { analyzeWebsite, extractEmailsFromWebsite } from '../../utils/scraper';
 import { validateDomain } from '../../utils/check-host';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GENERIC_PROVIDERS = [
     'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com',
@@ -14,6 +16,68 @@ const GENERIC_EMAIL_PREFIXES = [
     'boekhouding', 'klantenservice', 'webmaster', 'no-reply', 'noreply',
     'marketing', 'jobs', 'vacature', 'hr', 'algemeen', 'receptie', 'team'
 ];
+
+// AI Helper Function
+async function enhanceWithGemini(analysis, domain) {
+    if (!process.env.GEMINI_API_KEY) {
+        console.log('   ⚠️ Geen GEMINI_API_KEY, sla AI over.');
+        return analysis;
+    }
+
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Fast & efficient
+
+        const prompt = `
+        Je bent een B2B sales expert. Analyseer deze website data voor domein: ${domain}.
+
+        RAW DATA:
+        Title: ${analysis.title}
+        H1: ${analysis.h1}
+        About: ${analysis.aboutContent || ''}
+        Services: ${analysis.services?.join(', ') || ''}
+        Slogans: ${analysis.slogans?.join(', ') || ''}
+        
+        JOUW TAAK:
+        1. Bepaal de exacte Niche (bijv. "Loodgieter", "SaaS Boekhoudpakket", "Webdesign Bureau").
+        2. Extractor de schone Bedrijfsnaam (zonder BV, slogans, etc.).
+        3. Schrijf een hyper-korte samenvatting (1 zin) van wat ze doen.
+        4. Bedenk 2 unieke, gepersonaliseerde observaties (hooks) voor een cold email.
+
+        Return ALLEEN JSON:
+        {
+            "niche": "...",
+            "companyName": "...",
+            "summary": "...",
+            "uniqueObservations": ["...", "..."]
+        }
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+
+        const aiData = JSON.parse(text);
+
+        console.log(`   🤖 AI Enrichment Geslaagd: ${aiData.companyName} (${aiData.niche})`);
+
+        // Merge AI data with scraper data (AI wins on Niche/Name/Summary if valid)
+        return {
+            ...analysis,
+            niche: aiData.niche || analysis.niche,
+            title: aiData.companyName || analysis.title, // Update company name w/ AI version
+            summary: aiData.summary, // New field
+            uniqueObservations: [
+                ...(aiData.uniqueObservations || []),
+                ...(analysis.uniqueObservations || [])
+            ].slice(0, 5) // Keep top 5 hooks
+        };
+
+    } catch (e) {
+        console.error("   ❌ AI Enrichment Error:", e.message);
+        return analysis; // Fallback to original scraper data
+    }
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -107,16 +171,20 @@ export default async function handler(req, res) {
             });
         }
 
-        // 5. Succes! Extract only the required info for the CSV
+        // 5. 🆕 OME AI ENRICHMENT (Gemini Step)
+        console.log(`   🤖 Start Ome AI (Gemini) analyse...`);
+        const aiEnhancedAnalysis = await enhanceWithGemini(analysis, domain);
+
+        // 6. Succes! Extract only the required info for the CSV
         // We keep it minimal - the agent will use the knowledgeFile for guidance
 
         // 🆕 Als dit een domain-only input is, probeer email te vinden
         let foundEmail = originalEmail; // Als er al een email was, gebruik die
         let foundEmails = [];
 
-        if (!originalEmail && analysis.extractedEmails) {
+        if (!originalEmail && aiEnhancedAnalysis.extractedEmails) {
             // Emails zijn geëxtraheerd door de scraper
-            foundEmails = analysis.extractedEmails || [];
+            foundEmails = aiEnhancedAnalysis.extractedEmails || [];
 
             // Sorteer: persoonlijke emails eerst (niet info@, contact@, etc.)
             const personalEmails = foundEmails.filter(e => {
@@ -148,10 +216,11 @@ export default async function handler(req, res) {
                 websiteUrl: urlToTest,
                 message: 'Geen email gevonden op website',
                 data: {
-                    companyName: analysis.title || domain,
-                    contactPerson: analysis.teamMembers?.[0] || '',
-                    knowledgeFile: analysis.knowledgeFile || 'overig.md',
-                    allEmails: foundEmails // Alle gevonden emails (mogelijk leeg)
+                    companyName: aiEnhancedAnalysis.title || domain,
+                    contactPerson: aiEnhancedAnalysis.teamMembers?.[0] || '',
+                    knowledgeFile: aiEnhancedAnalysis.knowledgeFile || 'overig.md',
+                    allEmails: foundEmails, // Alle gevonden emails (mogelijk leeg)
+                    ...aiEnhancedAnalysis
                 }
             });
         }
@@ -164,10 +233,12 @@ export default async function handler(req, res) {
             websiteUrl: urlToTest,
             inputType: originalEmail ? 'email' : 'domain',
             data: {
-                companyName: analysis.title || domain, // Bedrijfsnaam
-                contactPerson: analysis.teamMembers?.[0] || '', // Contactpersoon (optioneel)
-                knowledgeFile: analysis.knowledgeFile || 'overig.md', // Pointer naar juiste niche file
-                allEmails: foundEmails // Alle gevonden emails (voor referentie)
+                companyName: aiEnhancedAnalysis.title || domain, // Bedrijfsnaam
+                contactPerson: aiEnhancedAnalysis.teamMembers?.[0] || '', // Contactpersoon (optioneel)
+                knowledgeFile: aiEnhancedAnalysis.knowledgeFile || 'overig.md', // Pointer naar juiste niche file
+                allEmails: foundEmails, // Alle gevonden emails (voor referentie)
+                summary: aiEnhancedAnalysis.summary, // AI Summary
+                uniqueObservations: aiEnhancedAnalysis.uniqueObservations // AI + Scraper Hooks
             }
         });
 
