@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as cheerio from "cheerio";
 import fs from 'fs';
 import path from 'path';
@@ -16,7 +16,7 @@ import {
   wrapError
 } from '../../utils/error-handler';
 
-const googleAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Cache voor geladen data
 let _cachedNiches = null;
@@ -248,41 +248,44 @@ ${sessionPrompt ? `\nEXTRA INSTRUCTIE: ${sessionPrompt}` : ''}
 
   // Attempt generation with fallback models
   let text = "";
-  let usedModel = "gemini-2.5-flash"; // Primary model
+  let usedModel = "gemini-1.5-flash"; // Primary model
 
   try {
-    // Attempt 1: Gemini 2.5 Flash
-    // Note: models.generateContent signature: { model, contents, config }
-    const response = await googleAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
+    // Attempt 1: Gemini 1.5 Flash (Fast & reliable)
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
         temperature: 0.85,
         topP: 0.95,
         maxOutputTokens: 4000,
       }
     });
-    // With the new SDK GoogleGenAI, response.text is a function? 
-    // Wait, the test script showed response.text() failed, response.text worked.
-    text = response.text;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    text = response.text();
+
   } catch (error1) {
     console.warn(`⚠️ Model ${usedModel} failed: ${error1.message || error1}`);
 
     // Fallback logic
     try {
-      usedModel = "gemini-1.5-flash"; // Reliable fallback
+      usedModel = "gemini-1.5-pro"; // Try Pro model as fallback
       console.log(`🔄 Switching to fallback model: ${usedModel}...`);
 
-      const responseFallback = await googleAI.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: prompt,
-        config: {
+      const modelFallback = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro",
+        generationConfig: {
           temperature: 0.85,
           topP: 0.95,
           maxOutputTokens: 4000,
         }
       });
-      text = responseFallback.text;
+
+      const responseFallback = await modelFallback.generateContent(prompt);
+      const resultFallback = await responseFallback.response;
+      text = resultFallback.text();
+
     } catch (error2) {
       console.error(`❌ All models failed. Last error: ${error2.message || error2}`);
       throw error2;
@@ -457,12 +460,12 @@ Voorbeelden:
 `;
 
   try {
-    const result = await googleAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: validationPrompt,
-      config: { temperature: 0.1 }
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: validationPrompt }] }], // Correct content alignment
+      generationConfig: { temperature: 0.1 }
     });
-    const response = result.text.trim();
+    const response = result.response.text().trim();
 
     // Parse het antwoord
     const scoreMatch = response.match(/SCORE:\s*(\d+)/i);
